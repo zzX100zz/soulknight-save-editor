@@ -222,7 +222,7 @@
       <div class="field"><label data-i18n="heroLv">角色等级</label><input type="number" id="opt-level" value="8" min="1" max="8"></div>
     </div>
     <div class="actions">
-      <button class="act red" id="btn-unlock" data-i18n="unlockAll">解锁全部</button>
+      <button class="act red" id="btn-unlock" data-i18n="unlockAll">应用</button>
       <span class="status-line" data-i18n="unlockHint"></span>
     </div>
   </section>
@@ -262,14 +262,15 @@ const I18N = {
     restoreNote: "含 Mac 与手机内的备份", footer: "运行期间请保持游戏完全退出、iPhone 解锁并连接；仅写本地存档，不影响云存档。",
     readSave: "读取存档", backup: "备份存档",
     gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
-    unlockAll: "解锁全部",
+    unlockAll: "应用",
     unlockHint: "数值只升不降",
     reload: "刷新列表", restoreDo: "恢复所选", loading: "正在读取…",
     readyLine: "环境就绪", setupLine: "环境未安装",
     empty: "还没有读取过存档", none: "未找到 iPhone",
-    noDevice: "请确认 iPhone 已用数据线连接、已解锁，游戏已退出（锁屏时 iOS 不会交出 App 数据）。",
+    noDevice: "没找到 iPhone：请连接本机（数据线最稳，Wi-Fi 也可）、解锁屏幕，并确认游戏已退出。",
     running: "进行中", done: "完成", failed: "失败", idle: "就绪",
     errorHint: "失败时先确认三点：游戏已完全退出；iPhone 已解锁并保持连接；再点一次「读取存档」重试。",
+    jobs: { setup: "安装环境", info: "读取存档", backup: "备份存档", unlock: "应用修改", restore: "恢复备份" },
     confirm: "确定用这个备份覆盖手机里的存档吗？",
     rows: {
       heroes: "角色未解锁", pets: "宠物未解锁", locksTitle: "锁定项合计",
@@ -293,14 +294,15 @@ const I18N = {
     restoreNote: "Mac and on-device backups", footer: "Keep the game closed and the iPhone unlocked and connected. Only local files are written.",
     readSave: "Read save", backup: "Back up",
     gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
-    unlockAll: "Unlock all",
+    unlockAll: "Apply",
     unlockHint: "values are never lowered",
     reload: "Reload", restoreDo: "Restore", loading: "loading...",
     readyLine: "environment ready", setupLine: "environment missing",
     empty: "the save has not been read yet", none: "no iPhone found",
-    noDevice: "Connect the iPhone with a cable, unlock it and close the game first (iOS hands over no app data while it is locked).",
+    noDevice: "No iPhone found: connect it (a cable is the most reliable, Wi-Fi works too), unlock the screen and close the game.",
     running: "running", done: "done", failed: "failed", idle: "ready",
     errorHint: "After a failure: quit the game completely, unlock the iPhone and keep it connected, then read the save again.",
+    jobs: { setup: "set up", info: "read save", backup: "back up", unlock: "apply changes", restore: "restore" },
     confirm: "Overwrite the save on the phone with this backup?",
     rows: {
       heroes: "heroes locked", pets: "pets locked", locksTitle: "locked total",
@@ -374,9 +376,11 @@ function renderStatus(payload) {
   optionNames = payload.options || [];
   renderToggles();
   renderState(payload.state);
-  const ready = env.dependencies && env.airlift && device;
-  ["btn-info", "btn-backup"].forEach((id) => { $(id).disabled = !ready; });
-  $("btn-unlock").disabled = !ready;
+  // Only a missing environment blocks the actions.  The phone is discovered again on
+  // every run, so locking the buttons because it is locked or unplugged right now only
+  // leaves the user with grey buttons and no explanation.
+  const envReady = env.dependencies && env.airlift;
+  ["btn-info", "btn-backup", "btn-unlock"].forEach((id) => { $(id).disabled = !envReady; });
   $("btn-setup").disabled = false;
   let hint = document.getElementById("device-hint");
   if (!device || !env.dependencies || !env.airlift) {
@@ -387,7 +391,7 @@ function renderStatus(payload) {
       document.querySelector(".device").after(hint);
     }
     hint.textContent = !device ? t("noDevice") : t("errorHint");
-  } else if (hint) {
+  } else if (hint && envReady && device) {
     hint.remove();
   }
 }
@@ -458,10 +462,12 @@ function renderJob(job) {
   if (!job) return;
   if (job.log) { $("log").textContent += job.log; $("log").scrollTop = $("log").scrollHeight; }
   const busy = job.status === "running";
+  const jobLabel = I18N[lang].jobs[job.name] || job.name || "";
   $("job-state").innerHTML = (busy ? '<span class="spinner"></span>' : "") +
-    `${job.name || ""} ${t(job.status) || job.status}` + (job.seconds ? ` · ${job.seconds}s` : "");
+    `${jobLabel} ${t(job.status) || job.status}` + (job.seconds ? ` · ${job.seconds}s` : "");
   ["btn-refresh", "btn-setup", "btn-info", "btn-backup", "btn-unlock", "btn-restore", "btn-list"]
     .forEach((id) => { $(id).disabled = busy; });
+  if (!busy) ask("status");   // re-applies the environment gate to the three main buttons
   if (job.status === "failed") {
     const hint = document.createElement("p");
     hint.className = "status-line err";
