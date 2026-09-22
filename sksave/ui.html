@@ -62,6 +62,7 @@
   }
   .env .on i { background: #58c08a; }
   .env .off i { background: var(--red); }
+  .env .unknown i { background: var(--yellow); }
 
   .build {
     margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(241, 238, 228, .25);
@@ -265,11 +266,12 @@ const I18N = {
     unlockAll: "应用",
     unlockHint: "数值只升不降",
     reload: "刷新列表", restoreDo: "恢复所选", loading: "正在读取…",
-    readyLine: "环境就绪", setupLine: "环境未安装",
+    readyLine: "环境就绪", setupLine: "环境未安装", unknownLine: "环境状态未知",
     empty: "还没有读取过存档", none: "未找到 iPhone",
     noDevice: "没找到 iPhone：请连接本机（数据线最稳，Wi-Fi 也可）、解锁屏幕，并确认游戏已退出。",
     running: "进行中", done: "完成", failed: "失败", idle: "就绪",
     errorHint: "失败时先确认三点：游戏已完全退出；iPhone 已解锁并保持连接；再点一次「读取存档」重试。",
+    setupFirst: "运行环境还不完整，点左下角「安装环境」即可（约一到两分钟）。",
     jobs: { setup: "安装环境", info: "读取存档", backup: "备份存档", unlock: "应用修改", restore: "恢复备份" },
     confirm: "确定用这个备份覆盖手机里的存档吗？",
     rows: {
@@ -297,11 +299,12 @@ const I18N = {
     unlockAll: "Apply",
     unlockHint: "values are never lowered",
     reload: "Reload", restoreDo: "Restore", loading: "loading...",
-    readyLine: "environment ready", setupLine: "environment missing",
+    readyLine: "environment ready", setupLine: "environment missing", unknownLine: "environment state unknown",
     empty: "the save has not been read yet", none: "no iPhone found",
     noDevice: "No iPhone found: connect it (a cable is the most reliable, Wi-Fi works too), unlock the screen and close the game.",
     running: "running", done: "done", failed: "failed", idle: "ready",
     errorHint: "After a failure: quit the game completely, unlock the iPhone and keep it connected, then read the save again.",
+    setupFirst: "The environment is not complete yet - press \u201cset up\u201d in the left column (a minute or two).",
     jobs: { setup: "set up", info: "read save", backup: "back up", unlock: "apply changes", restore: "restore" },
     confirm: "Overwrite the save on the phone with this backup?",
     rows: {
@@ -369,28 +372,33 @@ function renderStatus(payload) {
   $("dev-ios").textContent = device ? "iOS " + device.version : "—";
   $("dev-link").textContent = device ? device.transport : "—";
   const env = payload.environment || {};
+  // "unknown" means the check itself could not run; that must not look like a missing
+  // environment, and it must not disable the buttons either.
+  const envKnown = env.checked !== false;
+  const envReady = !envKnown || (env.dependencies && env.airlift);
   [["env-venv", env.venv], ["env-deps", env.dependencies], ["env-airlift", env.airlift]]
-    .forEach(([id, ok]) => { $(id).className = ok ? "on" : "off"; });
+    .forEach(([id, ok]) => { $(id).className = !envKnown ? "unknown" : ok ? "on" : "off"; });
   $("build-line").textContent = "v" + (payload.version || "") + "  ·  " +
-    (env.dependencies && env.airlift ? t("readyLine") : t("setupLine"));
+    (!envKnown ? t("unknownLine") : envReady ? t("readyLine") : t("setupLine"));
   optionNames = payload.options || [];
   renderToggles();
   renderState(payload.state);
   // Only a missing environment blocks the actions.  The phone is discovered again on
   // every run, so locking the buttons because it is locked or unplugged right now only
   // leaves the user with grey buttons and no explanation.
-  const envReady = env.dependencies && env.airlift;
-  ["btn-info", "btn-backup", "btn-unlock"].forEach((id) => { $(id).disabled = !envReady; });
+  ["btn-info", "btn-backup", "btn-unlock"].forEach((id) => {
+    $(id).disabled = envKnown && !envReady;
+  });
   $("btn-setup").disabled = false;
   let hint = document.getElementById("device-hint");
-  if (!device || !env.dependencies || !env.airlift) {
+  if (!device || (envKnown && !envReady)) {
     if (!hint) {
       hint = document.createElement("p");
       hint.id = "device-hint";
       hint.className = "status-line err";
       document.querySelector(".device").after(hint);
     }
-    hint.textContent = !device ? t("noDevice") : t("errorHint");
+    hint.textContent = !device ? t("noDevice") : t("setupFirst");
   } else if (hint && envReady && device) {
     hint.remove();
   }

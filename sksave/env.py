@@ -49,6 +49,7 @@ def status() -> dict[str, object]:
     selected = developer_dir()
     return {
         "tool": str(TOOL),
+        "checked": True,
         "venv": VENV_PYTHON.is_file(),
         "dependencies": dependencies,
         "airlift": DEVICE_HELPER.is_file(),

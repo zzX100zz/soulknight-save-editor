@@ -161,6 +161,10 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
             environment["DEVELOPER_DIR"] = "/Applications/Xcode.app/Contents/Developer"
         }
         environment["PYTHONUNBUFFERED"] = "1"
+        // The app is started from a bundle, whose working directory is /, so the tool
+        // package has to be on the path explicitly.
+        let path = environment["PYTHONPATH"].map { "\(tool.path):\($0)" } ?? tool.path
+        environment["PYTHONPATH"] = path
         return environment
     }
 
@@ -216,6 +220,7 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
         process.executableURL = executable
         process.arguments = arguments
         process.environment = processEnvironment()
+        process.currentDirectoryURL = tool
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()
@@ -234,7 +239,12 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             return object
         }
-        return ["venv": false, "dependencies": false, "airlift": false, "xcode": false, "ready": false]
+        // The check itself failed (missing interpreter, unreadable package).  Say so
+        // instead of reporting an environment that is not there: a failed check must
+        // not turn into grey buttons.
+        note("environment check did not answer: \(json.prefix(200))")
+        return ["venv": false, "dependencies": false, "airlift": false, "xcode": false,
+                "ready": false, "checked": false]
     }
 
     func devices() -> [[String: Any]] {

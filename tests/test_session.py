@@ -61,4 +61,6 @@ def test_environment_status_is_json_ready(monkeypatch, capsys):
     assert payload["venv"] is False
     assert payload["dependencies"] is False
     assert payload["ready"] is False
+    # the app only greys its buttons when the check actually ran and said no
+    assert payload["checked"] is True
     assert "tool" in payload and "python" in payload
