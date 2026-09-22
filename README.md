@@ -176,8 +176,12 @@ AirLift 的助手偶尔会丢一次响应，本工具会自动重试。持续失
 make dmg            # 输出 dist/SoulKnightSaveEditor-<版本>.dmg
 ```
 
-DMG 里是一个可双击的 `.app`，首次启动会在自身目录内创建虚拟环境并安装依赖，
-随后在终端里打开交互菜单。DMG 未做代码签名与公证，首次打开需要右键选择「打开」。
+DMG 里包含 `.app`、「应用程序」快捷方式和使用说明。首次打开请**右键点 App 选择「打开」**
+（未签名应用需要这一步），随后会自动弹出终端窗口，在其中完成依赖安装与 AirLift 编译
+（首次约一两分钟，过程可见），最后显示操作菜单。
+
+App 包本身不会被写入：源码副本、虚拟环境、AirLift 编译产物与备份都位于
+`~/Library/Application Support/SoulKnightSaveEditor/`，因此更新或重装 App 不会丢失状态。
 仓库本身仍然是完整、克隆即可运行的。
 
 ### 致谢
@@ -379,10 +383,15 @@ offline first.
 make dmg            # writes dist/SoulKnightSaveEditor-<version>.dmg
 ```
 
-The DMG contains a double-clickable `.app` that creates its own virtualenv on first launch,
-installs the dependencies and opens the interactive menu in Terminal. The DMG is not signed or
-notarised, so it has to be opened with the right-click menu the first time. The repository itself
-stays complete and runnable straight after a clone.
+The DMG contains the `.app`, an Applications shortcut and a short read-me. Open it with the
+right-click menu the first time (it is not signed or notarised); a Terminal window then appears
+and installs the dependencies and builds AirLift there, which takes a minute or two on the first
+run, before showing the interactive menu.
+
+Nothing inside the bundle is written to: the source copy, the virtualenv, the AirLift build and
+all backups live in `~/Library/Application Support/SoulKnightSaveEditor/`, so replacing or
+updating the app never loses state. The repository itself stays complete and runnable straight
+after a clone.
 
 ### Credits
 

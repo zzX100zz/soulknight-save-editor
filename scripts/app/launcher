@@ -1,13 +1,12 @@
 #!/bin/bash
-# Open the editor's menu in Terminal, creating the virtualenv on first launch.
+# Thin launcher: open a Terminal window that runs the bootstrap script, so the
+# user always sees what is happening.  All the real work lives in bootstrap.sh
+# inside the bundled tool, and the virtualenv lives outside the app bundle.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../Resources/tool" && pwd)"
-cd "$HERE"
-if [ ! -x ".venv/bin/python" ]; then
-    echo "first launch: creating .venv and installing requirements"
-    python3 -m venv .venv
-    .venv/bin/python -m pip install --upgrade pip
-    .venv/bin/python -m pip install -r requirements.txt
-fi
-osascript -e "tell application \"Terminal\" to do script \"cd '$HERE' && .venv/bin/python run.py\"" \
-         -e 'tell application "Terminal" to activate'
+osascript <<APPLESCRIPT
+tell application "Terminal"
+    activate
+    do script "cd '$HERE' && bash scripts/app/bootstrap.sh"
+end tell
+APPLESCRIPT

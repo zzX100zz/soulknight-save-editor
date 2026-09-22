@@ -1,0 +1,10 @@
+Soul Knight Save Editor（元气骑士存档修改器）
+
+1. 把 SoulKnightSaveEditor.app 拖到「应用程序」。
+2. 首次打开请右键点击 App，选择「打开」（未签名应用第一次需要这样确认）。
+3. 会弹出一个终端窗口，第一次启动需要一分钟左右安装依赖，随后出现操作菜单。
+   App 本身不会修改系统或游戏文件；所有可写数据都放在
+   ~/Library/Application Support/SoulKnightSaveEditor/。
+
+前置条件：iPhone 已与本机配对并开启开发者模式，安装完整版 Xcode 27。
+详细说明见仓库里的 README.md。
