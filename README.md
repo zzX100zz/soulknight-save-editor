@@ -418,13 +418,18 @@ soulknight-save-editor/
 The game rewrites both format switches to 1 and regenerates the new-format shards at the end of
 every session. Run `unlock` again, and make sure the game was fully closed before the run.
 
-**"pull Documents failed" / no container.**
-Two causes, and the tool handles both and says which one it hit: iOS stops handing over app data
-once the phone has been locked for a while (unlock it and run again), or the container path
-changed because the game was reinstalled or updated (the tool rediscovers it). After the first
-successful read the path is remembered in `work/container.txt`, so a short lock does not matter.
-You can also pass the path yourself:
-`--container /var/mobile/Containers/Data/Application/<UUID>`.
+**No container found, or "pull Documents failed".**
+Start with the `container:` line in the log and the `device said:` sentence at the end of the
+error: that is the device speaking for itself, and it is worth more than any summary.
+
+The usual cause is an app update.  iOS hands the game a new data container, so the remembered
+path no longer exists.  The tool now asks the device's own installation service for the current
+container, which works for App Store apps too, and writes every attempt to
+`work/container-discovery.txt` when it fails.  You can also set the path by hand under
+"Advanced" in the left column, or pass `--container /var/mobile/Containers/Data/Application/<UUID>`.
+
+The other cause is a phone that has been locked for a while: iOS then refuses to hand over app
+data.  Unlock it and run again.
 
 **`device_helper` errors.**
 AirLift's helper occasionally drops a response; the tool retries automatically. If it keeps
@@ -434,6 +439,11 @@ failing, verify that a full Xcode is selected (`xcode-select -p` should point at
 **A weapon or skin added in a very recent update is still missing.**
 Its id may not exist in the local save's handbook table yet. Running the tool again after the game
 update covers the newer id range; if it is a new non-numeric id, please open an issue with the id.
+
+**It read fine but found no `<name>_<UID>_.data` files.**
+The container holds no save files of that shape.  A game update may have migrated the old `.data`
+storage into a database, and that needs the new format analysed before any unlock logic can apply.
+The tool says so explicitly rather than failing quietly.
 
 **Does this affect cloud saves?**
 No, only local files. Accounts that have used cloud saves may see the cloud copy win, so verify
