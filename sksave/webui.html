@@ -332,7 +332,7 @@ function renderState(snapshot) {
     ["killEffects", snapshot.killEffects],
     ["gems", num(snapshot.gems)],
     ["seasonCoin", num(snapshot.seasonCoin)],
-    ["switches", Object.entries(fx).map(([k, v]) => k.split("_").slice(-1) + "=" + v).join("  ")],
+    ["switches", Object.entries(fx).map(([k, v]) => k.replace(/_\d+$/, "") + "=" + v).join("  ")],
     ["legacyFiles", snapshot.legacyFiles.length]
   ];
   table.innerHTML = rows
@@ -356,6 +356,8 @@ async function refreshStatus() {
   $("btn-backup").disabled = !data.environment.dependencies || !device;
   optionNames = data.options;
   renderOptions();
+  renderState(data.state);
+  $("state-hint").textContent = data.state ? "" : t("readHint");
   $("dev-state").textContent = data.job.status === "running" ? t("running") : "";
 }
 
