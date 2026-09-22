@@ -743,10 +743,18 @@ def resolve(udid: str | None = None) -> dict[str, Any]:
 _CONTAINER_RE = re.compile(r"/var/mobile/Containers/Data/Application/[0-9A-Fa-f-]{36}")
 
 
-def find_container(udid: str, bundle_id: str, *, explicit: str | None = None) -> str:
-    """Locate the app's data container through CoreDevice."""
+def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
+                   cache: Path | None = None) -> str:
+    """Locate the app's data container through CoreDevice.
+
+    CoreDevice refuses to answer while the iPhone is locked, so the last path that
+    worked is kept in ``cache`` and reused as a fallback: the container only moves
+    when the app is reinstalled or updated.
+    """
     if explicit:
         return explicit.rstrip("/")
+    if not udid:
+        udid = resolve(None)
     commands = (
         ["xcrun", "devicectl", "device", "info", "files", "--device", udid,
          "--domain-type", "appDataContainer", "--domain-identifier", bundle_id, "--json-output", "-"],
@@ -761,7 +769,17 @@ def find_container(udid: str, bundle_id: str, *, explicit: str | None = None) ->
             continue
         match = _CONTAINER_RE.search(completed.stdout or "")
         if match:
+            if cache is not None:
+                try:
+                    cache.parent.mkdir(parents=True, exist_ok=True)
+                    cache.write_text(match.group(0) + "\n")
+                except OSError:
+                    pass
             return match.group(0)
+    if cache is not None and cache.is_file():
+        remembered = cache.read_text().strip()
+        if _CONTAINER_RE.fullmatch(remembered):
+            return remembered
     raise SkError(
         "could not read the app data container - unlock the iPhone, keep it connected, "
         "and pass --container /var/mobile/Containers/Data/Application/<UUID> if this persists"

@@ -38,6 +38,16 @@ def _print_json(value) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=False))
 
 
+def _write_report(args, payload) -> None:
+    """Hand a machine-readable result to a caller (the web UI uses this)."""
+    target = getattr(args, "report", None)
+    if not target:
+        return
+    path = Path(target).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str))
+
+
 # --------------------------------------------------------------------------- #
 # commands
 # --------------------------------------------------------------------------- #
@@ -45,10 +55,10 @@ def command_setup(args) -> int:
     print("checking the local toolchain")
     for tool in ("git", "make", "xcrun"):
         print(f"  {tool}: {shutil.which(tool) or 'MISSING'}")
-    vendor = dev.ensure_airlift(build=not args.no_build)
+    vendor = dev.ensure_airlift(build=not getattr(args, "no_build", False))
     print(f"  AirLift: {vendor}")
     print(f"  device_helper: {'ok' if dev.DEVICE_HELPER.is_file() else 'MISSING'}")
-    if args.no_build:
+    if getattr(args, "no_build", False):
         return 0
     try:
         devices = dev.list_devices()
@@ -73,18 +83,21 @@ def command_devices(args) -> int:
 def _open_session(args) -> SaveSession:
     workdir = Path(args.workdir or (PROJECT / "work")).expanduser()
     workdir.mkdir(parents=True, exist_ok=True)
-    device = connect(args.udid, args.container, log=log)
+    device = connect(args.udid, args.container, log=log, container_cache=workdir / "container.txt")
     return SaveSession(device, workdir, log=log, verify=not args.no_verify)
 
 
 def command_info(args) -> int:
     if args.offline:
-        _print_json(SaveWorkspace(Path(args.offline).expanduser()).describe())
+        state = describe_state(SaveWorkspace(Path(args.offline).expanduser()))
+        _write_report(args, {"state": state})
+        _print_json(state)
         return 0
     session = _open_session(args)
     session.pull()
-    state = SaveWorkspace(session.live).describe()
+    state = describe_state(SaveWorkspace(session.live))
     session.push(session.live)                     # put the untouched save back
+    _write_report(args, {"state": state})
     _print_json(state)
     return 0
 
@@ -96,6 +109,7 @@ def command_backup(args) -> int:
     session.stash_on_device(path, label=args.label or "manual")
     session.push(session.live)
     print(f"backup written to {path}")
+    _write_report(args, {"backup": str(path), "state": describe_state(SaveWorkspace(session.live))})
     return 0
 
 
@@ -137,11 +151,13 @@ def command_unlock(args) -> int:
             print(f"  note: {len(legacy)} *.data.new/*.data.rij files are present - the game reads "
                   f"those instead of the edited shards (use --strip-legacy to move them aside)")
         report = apply_unlocks(workspace, options, log=log)
+        _write_report(args, {"changes": report, "state": describe_state(workspace)})
         _print_json({"changes": report, "after": describe_state(workspace)})
         return 0
 
     session = _open_session(args)
     report = session.unlock(options, label=args.label or "unlock")
+    _write_report(args, report)
     print_summary(report)
 
     print(f"\nbackup: {report['backup']}")
@@ -170,21 +186,28 @@ def print_summary(report: dict) -> None:
 def command_restore(args) -> int:
     session = _open_session(args)
     if args.list:
-        for remote in session.device_backups():
+        remotes = list(session.device_backups())
+        locals_ = sorted(path for path in session.backups.iterdir() if path.is_dir()) if session.backups.is_dir() else []
+        for remote in remotes:
             print(remote)
-        backups = sorted(path for path in session.backups.iterdir() if path.is_dir()) if session.backups.is_dir() else []
-        for local in backups:
+        for local in locals_:
             print(f"{local}  (local)")
+        _write_report(args, {
+            "device": [str(path) for path in remotes],
+            "local": [str(path) for path in locals_],
+        })
         return 0
     if args.from_device:
         session.restore_from_device(args.from_device)
         print(f"restored from {args.from_device}")
+        _write_report(args, {"restoredFrom": args.from_device, "state": describe_state(SaveWorkspace(session.live))})
         return 0
     if not args.from_path:
         print("pass --from <backup dir> or --from-device <media path> (see --list)", file=sys.stderr)
         return 2
     session.restore(Path(args.from_path).expanduser())
     print(f"restored from {args.from_path}")
+    _write_report(args, {"restoredFrom": args.from_path, "state": describe_state(SaveWorkspace(session.live))})
     return 0
 
 
@@ -204,6 +227,15 @@ Soul Knight iOS save editor (AirLift)
 """
 
 
+def _sub_namespace(command: str, args) -> argparse.Namespace:
+    """Namespace for a menu action: subcommand defaults plus the global options."""
+    namespace = build_parser().parse_args([command])
+    for name in ("udid", "container", "workdir", "offline", "no_verify"):
+        if hasattr(args, name):
+            setattr(namespace, name, getattr(args, name))
+    return namespace
+
+
 def command_menu(args) -> int:
     print(MENU)
     while True:
@@ -214,32 +246,31 @@ def command_menu(args) -> int:
             return 0
         if choice in {"q", "quit", "exit"}:
             return 0
-        namespace = argparse.Namespace(**vars(args))
-        namespace.offline = getattr(args, "offline", None)
-        namespace.from_path = getattr(args, "from_path", None)
-        namespace.from_device = getattr(args, "from_device", None)
-        namespace.list = False
-        namespace.label = None
-        if choice == "1":
-            command_setup(namespace)
-        elif choice == "2":
-            command_devices(namespace)
-        elif choice == "3":
-            command_info(namespace)
-        elif choice == "4":
-            command_backup(namespace)
-        elif choice == "5":
-            command_unlock(namespace)
-        elif choice == "6":
-            command_restore(argparse.Namespace(**{**vars(namespace), "list": True}))
+        actions = {"1": "setup", "2": "devices", "3": "info", "4": "backup", "5": "unlock", "6": "restore"}
+        if choice not in actions:
+            print(MENU)
+            continue
+        namespace = _sub_namespace(actions[choice], args)
+        if choice == "6":
+            namespace.list = True
+            command_restore(namespace)
+            namespace = _sub_namespace("restore", args)
             source = input("backup path (empty to cancel): ").strip()
             if source:
-                command_restore(argparse.Namespace(**{**vars(namespace), "from_path": source}))
+                namespace.from_path = source
+                command_restore(namespace)
         else:
-            print(MENU)
+            namespace.func(namespace)
 
 
 # --------------------------------------------------------------------------- #
+def command_web(args) -> int:
+    from . import web
+
+    web.serve(args.port, open_browser=not args.no_open)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sksave",
@@ -250,6 +281,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workdir", help="where to keep pulled files and backups (default ./work)")
     parser.add_argument("--no-verify", action="store_true", help="skip the read-back comparison")
     parser.add_argument("--offline", help="operate on a local save copy instead of a phone")
+    parser.add_argument("--report", help="write a JSON result to this path (used by the web UI)")
     sub = parser.add_subparsers(dest="command")
 
     p = sub.add_parser("setup", help="clone and build AirLift, then check the toolchain")
@@ -257,6 +289,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=command_setup)
 
     sub.add_parser("devices", help="list paired iPhones").set_defaults(func=command_devices)
+
+    p = sub.add_parser("web", help="open the browser UI (default) ")
+    p.add_argument("--port", type=int, default=8787)
+    p.add_argument("--no-open", action="store_true", help="do not open the browser")
+    p.set_defaults(func=command_web)
 
     p = sub.add_parser("info", help="read the save and print what is locked")
     p.set_defaults(func=command_info)

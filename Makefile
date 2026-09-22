@@ -40,6 +40,9 @@ unlock: venv
 test: venv
 	$(BIN)/python -m pytest -q tests
 
+web: ## open the browser UI
+	$(PY) run.py web
+
 dmg: venv
 	./scripts/build_dmg.sh
 

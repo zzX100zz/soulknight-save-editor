@@ -68,12 +68,17 @@ def connect(
     *,
     bundle_id: str = fields.BUNDLE_ID,
     log: Log = lambda message: None,
+    container_cache: Path | None = None,
 ) -> Device:
     """Resolve the paired iPhone and the app's data container."""
     entry = dev.resolve(udid)
     dev.configure(udid=entry["udid"], container=container)
     log(f"device: {entry['name']} ({entry['product']}, iOS {entry['version']}, {entry['transport']})")
-    path = dev.find_container(entry["udid"], bundle_id, explicit=container)
+    path = dev.find_container(entry["udid"], bundle_id, explicit=container, cache=container_cache)
+    if not container and container_cache is not None and container_cache.is_file():
+        if container_cache.read_text().strip() == path:
+            log("container: remembered from the last run (used because the iPhone is locked)")
+    dev.configure(udid=entry["udid"], container=path)
     dev.configure(udid=entry["udid"], container=path)
     log(f"container: {path}")
     return Device(

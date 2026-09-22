@@ -1,4 +1,5 @@
 # local state
+.DS_Store
 .venv/
 work/
 build/

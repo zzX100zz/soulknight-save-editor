@@ -73,7 +73,19 @@ python3 -m venv .venv
 .venv/bin/python run.py setup
 ```
 
-### 使用
+### 使用：浏览器界面
+
+```bash
+make web              # 打开 http://127.0.0.1:8787/
+```
+
+界面里可以完成全部操作：查看设备与运行环境、读取存档状态、备份、逐项勾选要解锁的内容、
+恢复备份，运行日志实时显示在页面上。环境还没装好时，页面上有一个「安装 / 修复环境」
+按钮，点它就会创建虚拟环境、安装依赖并编译 AirLift，进度同样显示在页面里。
+
+服务只监听 `127.0.0.1`，不对外网开放；关闭窗口或按 Ctrl+C 即退出。
+
+### 使用：命令行
 
 ```bash
 make devices          # 列出已配对的 iPhone
@@ -94,7 +106,8 @@ make unlock           # 解锁全部内容
 | `restore --list` | 列出可用的备份（本地与手机内） |
 | `restore --from <目录>` | 用本地备份覆盖手机存档 |
 | `restore --from-device <Media 路径>` | 用手机 Media 里的备份恢复（容器已空时也可用） |
-| 不带子命令 | 进入交互菜单 |
+| `web [--port 端口]` | 打开浏览器界面 |
+| 不带子命令 | 进入终端交互菜单 |
 
 `unlock` 的常用开关：
 
@@ -133,17 +146,19 @@ run.py unlock --no-verify                 # 跳过读回校验（更快，不推
 
 ```
 soulknight-save-editor/
-├── run.py                  入口（菜单 / 子命令）
-├── Makefile                setup / info / backup / unlock / test / dmg
+├── run.py                  入口（web / 子命令 / 菜单）
+├── Makefile                setup / web / info / backup / unlock / test / dmg
 ├── requirements.txt
 ├── sksave/
-│   ├── airlift.py          AirLift 设备层：pull / push / Media 读写、编译与设备发现
+│   ├── web.py              本地浏览器界面（只用标准库启动）
+│   ├── webui.html          页面本体（可直接打开查看样式与文案）
+│   ├── device.py           AirLift 设备层：pull / push / Media 读写、编译与设备发现
 │   ├── crypto.py           存档加解密（XOR / DES-iambo / DES-crst1 / 明文）
 │   ├── workspace.py        本地存档副本与目录枚举（角色、皮肤、武器 id 等）
 │   ├── fields.py           字段名、键名规律与「已解锁」取值
 │   ├── patcher.py          修改规则
 │   ├── session.py          设备流程：拉取、备份、写入、读回校验、恢复
-│   └── cli.py              命令行与交互菜单
+│   └── cli.py              命令行与浏览器界面入口
 ├── docs/SAVE_FORMAT.md     存档格式与字段说明
 ├── scripts/build_dmg.sh    打包 .app 与 DMG
 └── tests/                  离线测试（使用合成存档，不含任何真实玩家数据）
@@ -156,8 +171,9 @@ soulknight-save-editor/
 本工具每次都会重新处理这一步。同时确认游戏在运行前已经完全退出。
 
 **提示找不到容器？**
-先解锁手机并保持连接，再重试；也可以手动指定
-`--container /var/mobile/Containers/Data/Application/<UUID>`。
+读取容器需要 iPhone 已解锁。首次成功读取后，工具会把容器路径记在 `work/container.txt`，
+之后即使手机锁定也能继续使用；App 重装或更新导致路径变化时，解锁手机重跑一次即可刷新。
+也可以手动指定 `--container /var/mobile/Containers/Data/Application/<UUID>`。
 
 **卡在 `device_helper` 报错？**
 AirLift 的助手偶尔会丢一次响应，本工具会自动重试。持续失败时先确认 Xcode 完整安装
@@ -177,11 +193,12 @@ make dmg            # 输出 dist/SoulKnightSaveEditor-<版本>.dmg
 ```
 
 DMG 里包含 `.app`、「应用程序」快捷方式和使用说明。首次打开请**右键点 App 选择「打开」**
-（未签名应用需要这一步），随后会自动弹出终端窗口，在其中完成依赖安装与 AirLift 编译
-（首次约一两分钟，过程可见），最后显示操作菜单。
+（未签名应用需要这一步），界面会立刻在浏览器里打开。首次使用点一下页面上的
+「安装 / 修复环境」，它会创建虚拟环境、安装依赖并编译 AirLift（约一到两分钟），
+进度直接显示在页面里。
 
-App 包本身不会被写入：源码副本、虚拟环境、AirLift 编译产物与备份都位于
-`~/Library/Application Support/SoulKnightSaveEditor/`，因此更新或重装 App 不会丢失状态。
+App 包本身不会被写入：源码副本、虚拟环境、AirLift 编译产物、取出的存档与备份都在
+`~/Library/Application Support/SoulKnightSaveEditor/` 下，因此更新或重装 App 不会丢失状态。
 仓库本身仍然是完整、克隆即可运行的。
 
 ### 致谢
@@ -274,7 +291,20 @@ python3 -m venv .venv
 .venv/bin/python run.py setup
 ```
 
-### Usage
+### Usage: web UI
+
+```bash
+make web              # opens http://127.0.0.1:8787/
+```
+
+The page covers everything the tool does: devices and environment, the save state, backups,
+per-category unlock toggles and restoring a backup, with the log streaming live. When the
+environment is not installed yet it shows an "install / repair environment" button that creates
+the virtualenv, installs the dependencies and builds AirLift, again with visible progress.
+
+The server binds to `127.0.0.1` only, and closing the window (or Ctrl+C) stops it.
+
+### Usage: command line
 
 ```bash
 make devices          # list paired iPhones
@@ -295,7 +325,8 @@ Without `make`, the same commands are `.venv/bin/python run.py <subcommand>`:
 | `restore --list` | List available backups, local and on-device |
 | `restore --from <dir>` | Put a local backup back on the phone |
 | `restore --from-device <media path>` | Recover from a backup stored in the phone's Media folder, even when the container is empty |
-| no subcommand | Interactive menu |
+| `web [--port PORT]` | Open the browser UI |
+| no subcommand | Interactive terminal menu |
 
 Useful `unlock` flags:
 
@@ -361,7 +392,10 @@ The game rewrites both format switches to 1 and regenerates the new-format shard
 every session. Run `unlock` again, and make sure the game was fully closed before the run.
 
 **"Could not read the app data container".**
-Unlock the phone, keep it connected and retry. You can also pass the path yourself:
+Reading the container needs the iPhone to be unlocked. After the first successful read the path
+is remembered in `work/container.txt`, so a locked phone no longer gets in the way; if the app
+was reinstalled or updated and the path changed, unlock the phone and run once more to refresh
+it. You can also pass the path yourself:
 `--container /var/mobile/Containers/Data/Application/<UUID>`.
 
 **`device_helper` errors.**
@@ -384,14 +418,15 @@ make dmg            # writes dist/SoulKnightSaveEditor-<version>.dmg
 ```
 
 The DMG contains the `.app`, an Applications shortcut and a short read-me. Open it with the
-right-click menu the first time (it is not signed or notarised); a Terminal window then appears
-and installs the dependencies and builds AirLift there, which takes a minute or two on the first
-run, before showing the interactive menu.
+right-click menu the first time (it is not signed or notarised): the interface opens in the
+browser straight away. Press "install / repair environment" once and it creates the virtualenv,
+installs the dependencies and builds AirLift, a minute or two, with the progress shown on the
+page itself.
 
-Nothing inside the bundle is written to: the source copy, the virtualenv, the AirLift build and
-all backups live in `~/Library/Application Support/SoulKnightSaveEditor/`, so replacing or
-updating the app never loses state. The repository itself stays complete and runnable straight
-after a clone.
+Nothing inside the bundle is written to: the source copy, the virtualenv, the AirLift build, the
+pulled saves and the backups live in `~/Library/Application Support/SoulKnightSaveEditor/`, so
+replacing or updating the app never loses state. The repository itself stays complete and
+runnable straight after a clone.
 
 ### Credits
 
