@@ -1,0 +1,4 @@
+# save crypto (DES/AES shards used by the game)
+pycryptodome>=3.20
+# AFC access to /var/mobile/Media, which AirLift uses as its staging area
+pymobiledevice3>=4.0

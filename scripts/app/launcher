@@ -1,0 +1,13 @@
+#!/bin/bash
+# Open the editor's menu in Terminal, creating the virtualenv on first launch.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../Resources/tool" && pwd)"
+cd "$HERE"
+if [ ! -x ".venv/bin/python" ]; then
+    echo "first launch: creating .venv and installing requirements"
+    python3 -m venv .venv
+    .venv/bin/python -m pip install --upgrade pip
+    .venv/bin/python -m pip install -r requirements.txt
+fi
+osascript -e "tell application \"Terminal\" to do script \"cd '$HERE' && .venv/bin/python run.py\"" \
+         -e 'tell application "Terminal" to activate'

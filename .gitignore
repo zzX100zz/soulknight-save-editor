@@ -1,0 +1,20 @@
+# local state
+.venv/
+work/
+build/
+dist/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# the AirLift PoC is cloned and built here by `make setup`
+vendor/
+
+# pulled saves and backups never belong in the repository
+*.data
+*.playerprefs.plist
+prefs.plist
+backups/
+
+# ... but the packaging template is part of the source
+!scripts/app/Info.plist
