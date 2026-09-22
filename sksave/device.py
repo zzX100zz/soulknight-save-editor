@@ -761,13 +761,16 @@ def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
         ["xcrun", "devicectl", "device", "info", "apps", "--device", udid,
          "--bundle-id", bundle_id, "--json-output", "-"],
     )
+    reasons: list[str] = []
     for command in commands:
         try:
             completed = subprocess.run(command, check=False, stdout=subprocess.PIPE,
-                                       stderr=subprocess.DEVNULL, text=True, timeout=30)
-        except subprocess.SubprocessError:
+                                       stderr=subprocess.STDOUT, text=True, timeout=30)
+        except subprocess.SubprocessError as error:
+            reasons.append(f"{command[4]}: {error}")
             continue
-        match = _CONTAINER_RE.search(completed.stdout or "")
+        output = completed.stdout or ""
+        match = _CONTAINER_RE.search(output)
         if match:
             if cache is not None:
                 try:
@@ -776,11 +779,42 @@ def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
                 except OSError:
                     pass
             return match.group(0)
+        # keep the device's own words: "failed to get a list of files on the remote
+        # device" is what a locked iPhone answers, and it is the only honest clue.
+        note = _device_reason(output)
+        if note:
+            reasons.append(f"{command[4]}: {note}")
     if cache is not None and cache.is_file():
         remembered = cache.read_text().strip()
         if _CONTAINER_RE.fullmatch(remembered):
             return remembered
+    detail = ("\n  device said: " + " | ".join(reasons)) if reasons else ""
     raise SkError(
-        "could not read the app data container - unlock the iPhone, keep it connected, "
-        "and pass --container /var/mobile/Containers/Data/Application/<UUID> if this persists"
+        "could not read the app data container.\n"
+        "  Unlock the iPhone right before pressing the button - iOS refuses app data while "
+        "the screen is locked, even over USB, and the phone re-locks quickly.  Setting "
+        "Settings > Display & Brightness > Auto-Lock to Never while you use this tool helps.\n"
+        "  Use a USB cable rather than Wi-Fi: over the network the same request is refused.\n"
+        "  Last resort: pass the path yourself, "
+        "--container /var/mobile/Containers/Data/Application/<UUID>"
+        + detail
     )
+
+
+def _device_reason(output: str) -> str:
+    """Pull the most useful sentence out of devicectl's output.
+
+    "The system failed to get a list of files on the remote device" says far more
+    than the generic "CoreDevice.ActionError error 3" printed above it.
+    """
+    best = ""
+    for line in (output or "").splitlines():
+        line = line.strip().split("=", 1)[-1].strip().strip('",')
+        if len(line) <= 12:
+            continue
+        lowered = line.lower()
+        if "failed to" in lowered or "not unlocked" in lowered or "locked" in lowered:
+            return line[:220]
+        if not best and ("nsdebugdescription" in lowered or "error" in lowered):
+            best = line[:220]
+    return best

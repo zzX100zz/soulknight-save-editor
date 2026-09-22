@@ -265,10 +265,11 @@ const I18N = {
     gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
     unlockAll: "应用",
     unlockHint: "数值只升不降",
-    reload: "刷新列表", restoreDo: "恢复所选", loading: "正在读取…",
+    reload: "刷新列表", restoreDo: "恢复所选", loading: "正在读取…", noBackups: "还没有备份",
     readyLine: "环境就绪", setupLine: "环境未安装", unknownLine: "环境状态未知",
     empty: "还没有读取过存档", none: "未找到 iPhone",
-    noDevice: "没找到 iPhone：请连接本机（数据线最稳，Wi-Fi 也可）、解锁屏幕，并确认游戏已退出。",
+    noDevice: "没找到 iPhone：请连接本机并解锁屏幕，确认游戏已退出。",
+    wifiOnly: "当前是 Wi-Fi 连接。读取 App 数据请在插上数据线、并解锁屏幕的情况下进行（iOS 常在有线、解锁时才交出数据）。",
     running: "进行中", done: "完成", failed: "失败", idle: "就绪",
     errorHint: "失败时先确认三点：游戏已完全退出；iPhone 已解锁并保持连接；再点一次「读取存档」重试。",
     setupFirst: "运行环境还不完整，点左下角「安装环境」即可（约一到两分钟）。",
@@ -298,10 +299,11 @@ const I18N = {
     gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
     unlockAll: "Apply",
     unlockHint: "values are never lowered",
-    reload: "Reload", restoreDo: "Restore", loading: "loading...",
+    reload: "Reload", restoreDo: "Restore", loading: "loading...", noBackups: "no backups yet",
     readyLine: "environment ready", setupLine: "environment missing", unknownLine: "environment state unknown",
     empty: "the save has not been read yet", none: "no iPhone found",
-    noDevice: "No iPhone found: connect it (a cable is the most reliable, Wi-Fi works too), unlock the screen and close the game.",
+    noDevice: "No iPhone found: connect it, unlock the screen and close the game.",
+    wifiOnly: "Connected over Wi-Fi only. Plug in a USB cable and unlock the screen: iOS hands over app data on a wired, unlocked connection.",
     running: "running", done: "done", failed: "failed", idle: "ready",
     errorHint: "After a failure: quit the game completely, unlock the iPhone and keep it connected, then read the save again.",
     setupFirst: "The environment is not complete yet - press \u201cset up\u201d in the left column (a minute or two).",
@@ -391,14 +393,17 @@ function renderStatus(payload) {
   });
   $("btn-setup").disabled = false;
   let hint = document.getElementById("device-hint");
-  if (!device || (envKnown && !envReady)) {
+  const networkOnly = device && String(device.transport || "").toLowerCase() !== "usb";
+  if (!device || (envKnown && !envReady) || networkOnly) {
     if (!hint) {
       hint = document.createElement("p");
       hint.id = "device-hint";
       hint.className = "status-line err";
       document.querySelector(".device").after(hint);
     }
-    hint.textContent = !device ? t("noDevice") : t("setupFirst");
+    if (!device) hint.textContent = t("noDevice");
+    else if (envKnown && !envReady) hint.textContent = t("setupFirst");
+    else hint.textContent = t("wifiOnly");
   } else if (hint && envReady && device) {
     hint.remove();
   }
@@ -456,7 +461,7 @@ function renderBackups(payload) {
   ];
   if (!entries.length) {
     const option = document.createElement("option");
-    option.textContent = t("none"); list.append(option); return;
+    option.textContent = t("noBackups"); list.append(option); return;
   }
   entries.forEach(([path, kind, tag]) => {
     const option = document.createElement("option");
@@ -476,11 +481,17 @@ function renderJob(job) {
   ["btn-refresh", "btn-setup", "btn-info", "btn-backup", "btn-unlock", "btn-restore", "btn-list"]
     .forEach((id) => { $(id).disabled = busy; });
   if (!busy) ask("status");   // re-applies the environment gate to the three main buttons
+  let failure = document.getElementById("job-hint");
   if (job.status === "failed") {
-    const hint = document.createElement("p");
-    hint.className = "status-line err";
-    hint.textContent = t("errorHint");
-    $("log").after(hint);
+    if (!failure) {
+      failure = document.createElement("p");
+      failure.id = "job-hint";
+      failure.className = "status-line err";
+      $("log").after(failure);
+    }
+    failure.textContent = t("errorHint");
+  } else if (failure && job.status === "running") {
+    failure.remove();
   }
   if (!busy) ask("status");
 }
