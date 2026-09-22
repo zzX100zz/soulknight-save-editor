@@ -128,6 +128,14 @@
   }
 
   .fields { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 20px; }
+  .advanced { margin-top: 18px; }
+  .advanced summary {
+    cursor: pointer; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--grey);
+  }
+  .advanced summary:hover { color: var(--blue); }
+  .advanced .field { margin-top: 12px; }
+  .field.wide input { width: 100%; font-size: 12.5px; font-weight: 400; }
   .field label { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--grey); }
   .field input {
     font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
@@ -207,6 +215,15 @@
       <button class="act" id="btn-info" data-i18n="readSave">读取存档</button>
       <button class="act" id="btn-backup" data-i18n="backup">备份存档</button>
     </div>
+    <details class="advanced">
+      <summary data-i18n="advanced">高级：手工指定容器路径</summary>
+      <div class="field wide">
+        <label data-i18n="containerPath">容器路径（留空则自动探测）</label>
+        <input type="text" id="opt-container" spellcheck="false" autocomplete="off"
+               placeholder="/var/mobile/Containers/Data/Application/…">
+      </div>
+      <p class="status-line" id="container-note"></p>
+    </details>
   </section>
 
   <section>
@@ -262,6 +279,8 @@ const I18N = {
     stateNote: "读取会把存档取出后原样写回", unlockNote: "写入前后各有备份，写后逐字节校验",
     restoreNote: "含 Mac 与手机内的备份", footer: "运行期间请保持游戏完全退出、iPhone 解锁并连接；仅写本地存档，不影响云存档。",
     readSave: "读取存档", backup: "备份存档",
+    advanced: "高级：手工指定容器路径", containerPath: "容器路径（留空则自动探测）",
+    containerRemembered: "上次成功读取的容器：", containerNone: "还没有记下容器路径（读取成功后会自动记下）。",
     gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
     unlockAll: "应用",
     unlockHint: "数值只升不降",
@@ -296,6 +315,8 @@ const I18N = {
     unlockNote: "backed up before and verified byte for byte after",
     restoreNote: "Mac and on-device backups", footer: "Keep the game closed and the iPhone unlocked and connected. Only local files are written.",
     readSave: "Read save", backup: "Back up",
+    advanced: "Advanced: set the container path by hand", containerPath: "Container path (empty = discover it)",
+    containerRemembered: "Container from the last successful read: ", containerNone: "No container remembered yet (it is recorded after a successful read).",
     gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
     unlockAll: "Apply",
     unlockHint: "values are never lowered",
@@ -333,6 +354,11 @@ const num = (value) => (value === null || value === undefined ? "—" : Number(v
 /* ---- host bridge: the macOS app is the normal host, fetch is the fallback ---- */
 const native = window.webkit?.messageHandlers?.sksave;
 let jobCursor = 0;
+
+function containerValue() {
+  const field = $("opt-container");
+  return field ? field.value.trim() : "";
+}
 
 function ask(action, payload) {
   if (native) { native.postMessage({ action, ...(payload || {}) }); return; }
@@ -380,6 +406,14 @@ function renderStatus(payload) {
   const envReady = !envKnown || (env.dependencies && env.airlift);
   [["env-venv", env.venv], ["env-deps", env.dependencies], ["env-airlift", env.airlift]]
     .forEach(([id, ok]) => { $(id).className = !envKnown ? "unknown" : ok ? "on" : "off"; });
+  const field = $("opt-container");
+  if (field && !field.value && payload.containerManual) field.value = payload.containerManual;
+  const note = $("container-note");
+  if (note) {
+    note.textContent = payload.containerCache
+      ? t("containerRemembered") + payload.containerCache
+      : t("containerNone");
+  }
   $("build-line").textContent = "v" + (payload.version || "") + "  ·  " +
     (!envKnown ? t("unknownLine") : envReady ? t("readyLine") : t("setupLine"));
   optionNames = payload.options || [];
@@ -511,14 +545,15 @@ function applyLang() {
 
 $("btn-refresh").onclick = () => { ask("status"); ask("backups"); };
 $("btn-setup").onclick = () => { $("log").textContent = ""; ask("start", { name: "setup" }); };
-$("btn-info").onclick = () => { $("log").textContent = ""; ask("start", { name: "info" }); };
-$("btn-backup").onclick = () => { $("log").textContent = ""; ask("start", { name: "backup" }); };
+$("btn-info").onclick = () => { $("log").textContent = ""; ask("start", { name: "info", container: containerValue() }); };
+$("btn-backup").onclick = () => { $("log").textContent = ""; ask("start", { name: "backup", container: containerValue() }); };
 $("btn-list").onclick = () => ask("backups");
 $("btn-unlock").onclick = () => {
   $("log").textContent = "";
   const options = {};
   optionNames.forEach((name) => { options[name] = $("opt-" + name)?.checked !== false; });
   ask("start", {
+    container: containerValue(),
     name: "unlock", options,
     gems: Number($("opt-gems").value), seasonCoin: Number($("opt-coin").value),
     quantity: Number($("opt-qty").value), heroLevel: Number($("opt-level").value)
@@ -529,7 +564,7 @@ $("btn-restore").onclick = () => {
   if (!option || !option.value) return;
   if (!confirm(t("confirm"))) return;
   $("log").textContent = "";
-  ask("start", { name: "restore", source: option.value, kind: option.dataset.kind });
+  ask("start", { container: containerValue(), name: "restore", source: option.value, kind: option.dataset.kind });
 };
 $("lang-zh").onclick = () => { lang = "zh"; applyLang(); };
 $("lang-en").onclick = () => { lang = "en"; applyLang(); };

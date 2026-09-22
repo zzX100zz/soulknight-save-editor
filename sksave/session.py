@@ -80,7 +80,6 @@ def connect(
         if container_cache.read_text().strip() == path:
             log("container: remembered from the last run (used because the iPhone is locked)")
     dev.configure(udid=entry["udid"], container=path)
-    dev.configure(udid=entry["udid"], container=path)
     log(f"container: {path}")
     return Device(
         udid=entry["udid"],

@@ -743,33 +743,100 @@ def resolve(udid: str | None = None) -> dict[str, Any]:
 _CONTAINER_RE = re.compile(r"/var/mobile/Containers/Data/Application/[0-9A-Fa-f-]{36}")
 
 
+_INSTALLATION_PROXY = r"""
+import asyncio, json, sys
+from pymobiledevice3.lockdown import create_using_usbmux
+from pymobiledevice3.services.installation_proxy import InstallationProxyService
+
+
+async def main():
+    udid, bundle = sys.argv[1], sys.argv[2]
+    lockdown = await create_using_usbmux(serial=udid or None)
+    apps = await InstallationProxyService(lockdown=lockdown).get_apps(application_type="User")
+    info = apps.get(bundle) or {}
+    path = info.get("Container") or info.get("DataContainer") or ""
+    print(json.dumps({"container": path, "version": info.get("CFBundleShortVersionString") or ""}))
+
+
+asyncio.run(main())
+"""
+
+
+def container_from_installation_proxy(udid: str, bundle_id: str) -> str:
+    """Ask the device which data container the app uses.
+
+    This is the method that actually works for an App Store app: devicectl's
+    ``info files`` answers for developer-signed apps only, and for anything else
+    it reports a streaming error that says nothing about the real reason.  The
+    installation proxy lists every installed app together with its container.
+    """
+    completed = subprocess.run(
+        [sys.executable, "-c", _INSTALLATION_PROXY, udid or "", bundle_id],
+        check=False, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=90,
+    )
+    payload = (completed.stdout or "").strip().splitlines()
+    if not payload:
+        return ""
+    try:
+        answer = json.loads(payload[-1])
+    except ValueError:
+        return ""
+    path = str(answer.get("container") or "").replace("/private/var/mobile", "/var/mobile")
+    return path if _CONTAINER_RE.fullmatch(path) else ""
+
+
 def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
                    cache: Path | None = None) -> str:
-    """Locate the app's data container through CoreDevice.
+    """Locate the app's data container.
 
-    CoreDevice refuses to answer while the iPhone is locked, so the last path that
-    worked is kept in ``cache`` and reused as a fallback: the container only moves
-    when the app is reinstalled or updated.
+    Three sources, in order of reliability: the installation proxy (any installed
+    app), CoreDevice (developer-signed apps, and what AirLift documents), and the
+    last path that worked.  The cache matters because the App Store version of the
+    game changes container whenever it is updated.
     """
     if explicit:
         return explicit.rstrip("/")
     if not udid:
         udid = resolve(None)
+    try:
+        found = container_from_installation_proxy(udid, bundle_id)
+    except Exception:  # noqa: BLE001 - no USB link, service refused, timeout
+        found = ""
+    if found:
+        if cache is not None:
+            try:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                cache.write_text(found + "\n")
+            except OSError:
+                pass
+        return found
     commands = (
+        # listing the container itself, its temporary folder, and finally the app list:
+        # three separate CoreDevice calls, because which of them answers varies with the
+        # iOS build and the state of the phone.
         ["xcrun", "devicectl", "device", "info", "files", "--device", udid,
          "--domain-type", "appDataContainer", "--domain-identifier", bundle_id, "--json-output", "-"],
+        ["xcrun", "devicectl", "device", "info", "files", "--device", udid,
+         "--domain-type", "temporary", "--domain-identifier", bundle_id, "--json-output", "-"],
         ["xcrun", "devicectl", "device", "info", "apps", "--device", udid,
          "--bundle-id", bundle_id, "--json-output", "-"],
     )
     reasons: list[str] = []
+    attempts: list[str] = []
     for command in commands:
+        label = f"devicectl {' '.join(command[4:6])} {command[7] if len(command) > 7 else ''}".strip()
+        started = time.monotonic()
         try:
             completed = subprocess.run(command, check=False, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT, text=True, timeout=30)
+                                       stderr=subprocess.STDOUT, text=True, timeout=120)
         except subprocess.SubprocessError as error:
-            reasons.append(f"{command[4]}: {error}")
+            reasons.append(f"{label}: {error}")
+            attempts.append(f"$ {' '.join(command)}\n  -> {error}")
             continue
         output = completed.stdout or ""
+        took = time.monotonic() - started
+        attempts.append(f"$ {' '.join(command)}\n  -> exit {completed.returncode} in {took:.1f}s\n"
+                        + "\n".join("     " + line for line in output.strip().splitlines()[:40]))
         match = _CONTAINER_RE.search(output)
         if match:
             if cache is not None:
@@ -783,7 +850,22 @@ def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
         # device" is what a locked iPhone answers, and it is the only honest clue.
         note = _device_reason(output)
         if note:
-            reasons.append(f"{command[4]}: {note}")
+            reasons.append(f"{label}: {note}")
+    if cache is not None:
+        report = cache.with_name("container-discovery.txt")
+        try:
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(
+                "container discovery, "
+                + time.strftime("%Y-%m-%d %H:%M:%S")
+                + f"\nudid: {udid}\nbundle: {bundle_id}\n\n"
+                + "\n\n".join(attempts)
+                + "\n\nresult: " + ("failed" if not reasons else "failed; " + " | ".join(reasons))
+                + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
     if cache is not None and cache.is_file():
         remembered = cache.read_text().strip()
         if _CONTAINER_RE.fullmatch(remembered):
@@ -798,6 +880,8 @@ def find_container(udid: str, bundle_id: str, *, explicit: str | None = None,
         "  Last resort: pass the path yourself, "
         "--container /var/mobile/Containers/Data/Application/<UUID>"
         + detail
+        + (f"\n  every attempt is written to {cache.with_name('container-discovery.txt')}"
+           if cache is not None else "")
     )
 
 

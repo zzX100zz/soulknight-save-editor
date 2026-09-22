@@ -211,6 +211,10 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
                               "weapon_skins", "evolution", "kill_effects", "mythic", "materials",
                               "season_coin", "gems", "repair_format"]
         payload["state"] = state ?? NSNull()
+        payload["containerManual"] = UserDefaults.standard.string(forKey: "manualContainer") ?? ""
+        let cache = tool.appendingPathComponent("work/container.txt")
+        payload["containerCache"] = (try? String(contentsOf: cache, encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         payload["version"] = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? ""
         emit("status", payload)
     }
@@ -309,6 +313,15 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
             reportPath = tool.appendingPathComponent("work/native-report.json")
             try? FileManager.default.removeItem(at: reportPath!)
             arguments = [tool.appendingPathComponent("run.py").path, "--report", reportPath!.path]
+            // An optional container path from the window.  Empty means "discover it",
+            // which is what the tool does on its own when everything goes well.
+            let manual = (body["container"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if manual.isEmpty {
+                UserDefaults.standard.removeObject(forKey: "manualContainer")
+            } else {
+                UserDefaults.standard.set(manual, forKey: "manualContainer")
+                arguments += ["--container", manual]
+            }
             arguments += argumentsFor(name: name, body: body)
         }
 

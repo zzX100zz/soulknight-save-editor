@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 _LAZY = {
     "BUNDLE_ID": ("sksave.fields", "BUNDLE_ID"),
