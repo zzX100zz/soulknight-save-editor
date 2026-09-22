@@ -73,19 +73,20 @@ python3 -m venv .venv
 .venv/bin/python run.py setup
 ```
 
-### 使用：浏览器界面
+### 使用：应用界面
 
-![浏览器界面](docs/screenshot-webui.png)
+![应用界面](docs/screenshot-ui.png)
 
 ```bash
-make web              # 打开 http://127.0.0.1:8787/
+make app              # 编译并打开 dist/SoulKnightSaveEditor.app
 ```
 
-界面里可以完成全部操作：查看设备与运行环境、读取存档状态、备份、逐项勾选要解锁的内容、
-恢复备份，运行日志实时显示在页面上。环境还没装好时，页面上有一个「安装 / 修复环境」
-按钮，点它就会创建虚拟环境、安装依赖并编译 AirLift，进度同样显示在页面里。
+就是一个普通的 macOS 应用窗口，不需要浏览器、也没有本地服务。窗口里可以完成全部操作：
+查看设备与运行环境、读取存档状态、备份、逐项勾选要解锁的内容、恢复备份，
+运行日志实时显示。环境还没装好时，点左侧的「安装环境」即可，它会创建虚拟环境、
+安装依赖并编译 AirLift，进度同样显示在日志里。
 
-服务只监听 `127.0.0.1`，不对外网开放；关闭窗口或按 Ctrl+C 即退出。
+界面中英双语，右上角切换。菜单栏里可以「打开工具文件夹」查看取出的存档与备份。
 
 ### 使用：命令行
 
@@ -152,8 +153,8 @@ soulknight-save-editor/
 ├── Makefile                setup / web / info / backup / unlock / test / dmg
 ├── requirements.txt
 ├── sksave/
-│   ├── web.py              本地浏览器界面（只用标准库启动）
-│   ├── webui.html          页面本体（可直接打开查看样式与文案）
+│   ├── ui.html             界面本体（原生窗口内渲染，中英双语）
+│   ├── env.py              运行环境状态与安装（只用标准库）
 │   ├── device.py           AirLift 设备层：pull / push / Media 读写、编译与设备发现
 │   ├── crypto.py           存档加解密（XOR / DES-iambo / DES-crst1 / 明文）
 │   ├── workspace.py        本地存档副本与目录枚举（角色、皮肤、武器 id 等）
@@ -162,8 +163,9 @@ soulknight-save-editor/
 │   ├── session.py          设备流程：拉取、备份、写入、读回校验、恢复
 │   └── cli.py              命令行与浏览器界面入口
 ├── docs/SAVE_FORMAT.md     存档格式与字段说明
-├── docs/screenshot-webui.png  界面截图（示例数据）
-├── scripts/build_dmg.sh    打包 .app 与 DMG
+├── docs/screenshot-ui.png  界面截图（示例数据）
+├── scripts/build_app.sh    用 swiftc 编译 App
+├── scripts/build_dmg.sh    打包 DMG
 └── tests/                  离线测试（使用合成存档，不含任何真实玩家数据）
 ```
 
@@ -173,9 +175,10 @@ soulknight-save-editor/
 游戏每次会话结束时会把两个格式开关写回 1 并重写新格式分片。重新执行一次 `unlock` 即可，
 本工具每次都会重新处理这一步。同时确认游戏在运行前已经完全退出。
 
-**提示找不到容器？**
-读取容器需要 iPhone 已解锁。首次成功读取后，工具会把容器路径记在 `work/container.txt`，
-之后即使手机锁定也能继续使用；App 重装或更新导致路径变化时，解锁手机重跑一次即可刷新。
+**提示 `pull Documents failed` / 找不到容器？**
+两种原因，工具都会自动处理并给出提示：一是 iPhone 长时间锁屏后，iOS 会停止交出 App 数据，
+解锁手机重跑即可；二是游戏重装或更新后容器路径变了，工具会重新探测并在日志里说明。
+首次成功读取后容器路径会记在 `work/container.txt`，所以短暂锁屏不会影响使用。
 也可以手动指定 `--container /var/mobile/Containers/Data/Application/<UUID>`。
 
 **卡在 `device_helper` 报错？**
@@ -192,16 +195,15 @@ AirLift 的助手偶尔会丢一次响应，本工具会自动重试。持续失
 ### 打包 DMG
 
 ```bash
-make dmg            # 输出 dist/SoulKnightSaveEditor-<版本>.dmg
+make dmg            # 先编译 App，再输出 dist/SoulKnightSaveEditor-<版本>.dmg
 ```
 
-DMG 里包含 `.app`、「应用程序」快捷方式和使用说明。首次打开请**右键点 App 选择「打开」**
-（未签名应用需要这一步），界面会立刻在浏览器里打开。首次使用点一下页面上的
-「安装 / 修复环境」，它会创建虚拟环境、安装依赖并编译 AirLift（约一到两分钟），
-进度直接显示在页面里。
+DMG 里是 `.app`、「应用程序」快捷方式和使用说明。首次打开请**右键点 App 选择「打开」**
+（未签名应用需要这一步），然后在窗口里点一次「安装环境」，约一到两分钟后即可使用。
 
-App 包本身不会被写入：源码副本、虚拟环境、AirLift 编译产物、取出的存档与备份都在
-`~/Library/Application Support/SoulKnightSaveEditor/` 下，因此更新或重装 App 不会丢失状态。
+App 由 `scripts/build_app.sh` 用 `swiftc` 编译（原生 AppKit 程序），Python 源码随包分发，
+首次启动时复制到 `~/Library/Application Support/SoulKnightSaveEditor/tool/`，
+运行环境与 AirLift 也建在那里，因此 App 包本身不会被写入，更新或重装都不会丢失状态。
 仓库本身仍然是完整、克隆即可运行的。
 
 ### 致谢
@@ -294,20 +296,22 @@ python3 -m venv .venv
 .venv/bin/python run.py setup
 ```
 
-### Usage: web UI
+### Usage: the app
 
-![Browser interface](docs/screenshot-webui.png)
+![Application window](docs/screenshot-ui.png)
 
 ```bash
-make web              # opens http://127.0.0.1:8787/
+make app              # builds and opens dist/SoulKnightSaveEditor.app
 ```
 
-The page covers everything the tool does: devices and environment, the save state, backups,
-per-category unlock toggles and restoring a backup, with the log streaming live. When the
-environment is not installed yet it shows an "install / repair environment" button that creates
-the virtualenv, installs the dependencies and builds AirLift, again with visible progress.
+A plain macOS application window: no browser and no local server. Everything lives in that one
+window - devices and environment, the save state, backups, per-category unlock toggles, restoring
+a backup - with the log streaming live. If the environment is missing, press "set up" in the left
+column and it creates the virtualenv, installs the dependencies and builds AirLift, showing the
+progress in the log.
 
-The server binds to `127.0.0.1` only, and closing the window (or Ctrl+C) stops it.
+The interface is bilingual (Chinese and English, switchable in the top right corner), and the
+menu bar has an "open tool folder" item for the pulled saves and backups.
 
 ### Usage: command line
 
@@ -374,20 +378,23 @@ error that points at the backup to restore.
 
 ```
 soulknight-save-editor/
-├── run.py                  entry point (menu or subcommands)
-├── Makefile                setup / info / backup / unlock / test / dmg targets
+├── run.py                  entry point (subcommands or menu)
+├── Makefile                setup / app / info / backup / unlock / test / dmg targets
 ├── requirements.txt
 ├── sksave/
-│   ├── airlift.py          device layer: pull, push, Media I/O, build and discovery
+│   ├── ui.html             the interface (rendered in the app window, bilingual)
+│   ├── env.py              environment status and setup (standard library only)
+│   ├── device.py           device layer: pull, push, Media I/O, build and discovery
 │   ├── crypto.py           save ciphers (XOR, DES-iambo, DES-crst1, plain)
 │   ├── workspace.py        local save copy and the catalog it enumerates
 │   ├── fields.py           field names, key patterns and the "owned" values
 │   ├── patcher.py          the edit rules
 │   ├── session.py          device flow: pull, back up, push, verify, restore
-│   └── cli.py              command line and interactive menu
+│   └── cli.py              command line and menu
 ├── docs/SAVE_FORMAT.md     save layout, ciphers and field semantics
-├── docs/screenshot-webui.png  screenshot of the UI, with sample data
-├── scripts/build_dmg.sh    builds the .app and the DMG
+├── docs/screenshot-ui.png  screenshot of the interface, with sample data
+├── scripts/build_app.sh    compiles the AppKit app with swiftc
+├── scripts/build_dmg.sh    packages the .app into a DMG
 └── tests/                  offline tests on a synthetic save, no real player data
 ```
 
@@ -397,11 +404,12 @@ soulknight-save-editor/
 The game rewrites both format switches to 1 and regenerates the new-format shards at the end of
 every session. Run `unlock` again, and make sure the game was fully closed before the run.
 
-**"Could not read the app data container".**
-Reading the container needs the iPhone to be unlocked. After the first successful read the path
-is remembered in `work/container.txt`, so a locked phone no longer gets in the way; if the app
-was reinstalled or updated and the path changed, unlock the phone and run once more to refresh
-it. You can also pass the path yourself:
+**"pull Documents failed" / no container.**
+Two causes, and the tool handles both and says which one it hit: iOS stops handing over app data
+once the phone has been locked for a while (unlock it and run again), or the container path
+changed because the game was reinstalled or updated (the tool rediscovers it). After the first
+successful read the path is remembered in `work/container.txt`, so a short lock does not matter.
+You can also pass the path yourself:
 `--container /var/mobile/Containers/Data/Application/<UUID>`.
 
 **`device_helper` errors.**
@@ -424,15 +432,15 @@ make dmg            # writes dist/SoulKnightSaveEditor-<version>.dmg
 ```
 
 The DMG contains the `.app`, an Applications shortcut and a short read-me. Open it with the
-right-click menu the first time (it is not signed or notarised): the interface opens in the
-browser straight away. Press "install / repair environment" once and it creates the virtualenv,
-installs the dependencies and builds AirLift, a minute or two, with the progress shown on the
-page itself.
+right-click menu the first time (it is not signed or notarised), then press "set up" once in the
+window; a minute or two later the tool is ready to use.
 
-Nothing inside the bundle is written to: the source copy, the virtualenv, the AirLift build, the
-pulled saves and the backups live in `~/Library/Application Support/SoulKnightSaveEditor/`, so
-replacing or updating the app never loses state. The repository itself stays complete and
-runnable straight after a clone.
+The app is compiled with `swiftc` by `scripts/build_app.sh` (a native AppKit program). The Python
+sources ship inside the bundle and are copied to
+`~/Library/Application Support/SoulKnightSaveEditor/tool/` on first launch, where the virtualenv
+and the AirLift build live as well, so nothing inside the bundle is ever written to and replacing
+or updating the app never loses state. The repository itself stays complete and runnable straight
+after a clone.
 
 ### Credits
 

@@ -17,12 +17,13 @@ import hashlib
 import posixpath
 import shutil
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable
 
 from . import device as dev
 from . import fields
+from .device import SkError
 from .patcher import UnlockOptions, apply as apply_unlocks, describe_state
 from .workspace import SaveWorkspace
 
@@ -125,22 +126,46 @@ class SaveSession:
     # ------------------------------------------------------------------ #
     # pull / push
     # ------------------------------------------------------------------ #
+    def refresh_container(self) -> str | None:
+        """Ask the device for the container again, ignoring the remembered copy."""
+        try:
+            return dev.find_container(self.device.udid, fields.BUNDLE_ID, cache=None)
+        except Exception:  # noqa: BLE001 - still locked, or the device went away
+            return None
+
+    def _pull_one(self, remote: str, local: Path, description: str) -> None:
+        """Pull one path, recovering once if the remembered container was stale."""
+        try:
+            self._retry(lambda: dev.pull(self.device.udid, remote, local), description)
+            return
+        except Exception as error:  # noqa: BLE001
+            found = self.refresh_container()
+            if found and found != self.device.container:
+                self.log(f"{description}: the container moved to {found}, retrying there")
+                suffix = remote[len(self.device.container):]
+                self.device = replace(self.device, container=found)
+                self._retry(lambda: dev.pull(self.device.udid, found + suffix, local), description)
+                return
+            raise SkError(
+                f"{description} failed: the app's data could not be moved out of the container.\n"
+                "  - Unlock the iPhone and keep it connected.  iOS stops handing over app data "
+                "once the phone has been locked for a while, even when everything else is fine.\n"
+                "  - If the game was reinstalled or updated, its container path has changed: "
+                "unlock the phone and run once more so the new path can be discovered.\n"
+                "  - Last resort: pass the path yourself, "
+                "--container /var/mobile/Containers/Data/Application/<UUID>"
+            ) from error
+
     def pull(self, *, into: Path | None = None, with_prefs: bool = True) -> Path:
         """Move the save off the phone into ``workdir/live``."""
         target = Path(into) if into else self.live
         shutil.rmtree(target, ignore_errors=True)
         target.mkdir(parents=True, exist_ok=True)
-        self._retry(
-            lambda: dev.pull(self.device.udid, self.device.documents, target / fields.DOCUMENTS),
-            "pull Documents",
-        )
+        self._pull_one(self.device.documents, target / fields.DOCUMENTS, "pull Documents")
         self.log(f"pulled {target / fields.DOCUMENTS}")
         if with_prefs:
             try:
-                self._retry(
-                    lambda: dev.pull(self.device.udid, self.device.prefs, target / "prefs.plist"),
-                    "pull prefs",
-                )
+                self._pull_one(self.device.prefs, target / "prefs.plist", "pull prefs")
                 self.log("pulled prefs.plist")
             except Exception as error:  # noqa: BLE001
                 self.log(f"warning: could not pull prefs.plist ({error})")

@@ -2,14 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>SoulKnightSaveEditor</string>
-    <key>CFBundleDisplayName</key><string>Soul Knight Save Editor</string>
+    <key>CFBundleName</key><string>Soul Knight Save Editor</string>
+    <key>CFBundleDisplayName</key><string>元气骑士 存档修改器</string>
     <key>CFBundleIdentifier</key><string>io.github.soulknight-save-editor.app</string>
     <key>CFBundleExecutable</key><string>SoulKnightSaveEditor</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>__VERSION__</string>
     <key>CFBundleVersion</key><string>__VERSION__</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSRequiresAquaSystemAppearance</key><false/>
+    <key>NSHumanReadableCopyright</key><string>MIT licensed. Not affiliated with ChillyRoom or Apple.</string>
 </dict>
 </plist>

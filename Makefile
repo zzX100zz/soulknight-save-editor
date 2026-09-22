@@ -40,8 +40,9 @@ unlock: venv
 test: venv
 	$(BIN)/python -m pytest -q tests
 
-web: ## open the browser UI
-	$(PY) run.py web
+app: ## build dist/SoulKnightSaveEditor.app
+	bash scripts/build_app.sh
+	open dist/SoulKnightSaveEditor.app
 
 dmg: venv
 	./scripts/build_dmg.sh

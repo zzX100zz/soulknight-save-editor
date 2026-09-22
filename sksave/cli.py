@@ -264,13 +264,6 @@ def command_menu(args) -> int:
 
 
 # --------------------------------------------------------------------------- #
-def command_web(args) -> int:
-    from . import web
-
-    web.serve(args.port, open_browser=not args.no_open)
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sksave",
@@ -289,11 +282,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=command_setup)
 
     sub.add_parser("devices", help="list paired iPhones").set_defaults(func=command_devices)
-
-    p = sub.add_parser("web", help="open the browser UI (default) ")
-    p.add_argument("--port", type=int, default=8787)
-    p.add_argument("--no-open", action="store_true", help="do not open the browser")
-    p.set_defaults(func=command_web)
 
     p = sub.add_parser("info", help="read the save and print what is locked")
     p.set_defaults(func=command_info)

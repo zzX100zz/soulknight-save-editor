@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Soul Knight Save Editor</title>
+<style>
+  :root {
+    --paper: #f1eee4;
+    --ink: #131313;
+    --red: #cf3327;
+    --blue: #1b4d8f;
+    --yellow: #e3b02c;
+    --grey: #8c887c;
+    --rule: rgba(19, 19, 19, .22);
+    --rail: #131313;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 13px/1.45 "Futura", "Avenir Next", "Helvetica Neue", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    overflow: hidden;
+  }
+  ::selection { background: var(--yellow); }
+
+  /* ---------------------------------------------------------------- rail */
+  aside {
+    width: 268px;
+    flex: 0 0 268px;
+    background: var(--rail);
+    color: var(--paper);
+    padding: 26px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .marks { position: relative; height: 96px; margin-bottom: 22px; }
+  .marks i { position: absolute; display: block; }
+  .mark-circle { width: 46px; height: 46px; border-radius: 50%; background: var(--red); left: 0; top: 0; }
+  .mark-square { width: 34px; height: 34px; background: var(--yellow); left: 58px; top: 46px; }
+  .mark-tri {
+    width: 0; height: 0; left: 104px; top: 0;
+    border-left: 26px solid transparent; border-right: 26px solid transparent;
+    border-bottom: 44px solid var(--blue);
+  }
+  aside h1 {
+    font-size: 19px; font-weight: 700; letter-spacing: .01em; line-height: 1.25;
+  }
+  aside h1 span { display: block; color: var(--yellow); }
+  aside .latin {
+    margin-top: 8px; font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+    color: rgba(241, 238, 228, .55);
+  }
+  aside .device { margin-top: 30px; border-top: 1px solid rgba(241, 238, 228, .25); padding-top: 16px; }
+  aside .device .name { font-size: 16px; font-weight: 700; }
+  aside .device dl { margin-top: 10px; }
+  aside .device div { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11.5px; }
+  aside .device dt { color: rgba(241, 238, 228, .55); letter-spacing: .06em; text-transform: uppercase; }
+  aside .device dd { font-variant-numeric: tabular-nums; }
+
+  .env { margin-top: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .env div { border: 1px solid rgba(241, 238, 228, .28); padding: 7px 6px; text-align: center; }
+  .env b { display: block; font-size: 9.5px; letter-spacing: .12em; color: rgba(241, 238, 228, .6); text-transform: uppercase; }
+  .env i {
+    display: block; margin: 6px auto 0; width: 14px; height: 14px; background: rgba(241, 238, 228, .2);
+  }
+  .env .on i { background: #58c08a; }
+  .env .off i { background: var(--red); }
+
+  .build {
+    margin-top: 26px; padding-top: 14px; border-top: 1px solid rgba(241, 238, 228, .25);
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: rgba(241, 238, 228, .5);
+  }
+  .rail-actions { margin-top: auto; padding-top: 22px; display: grid; gap: 8px; }
+  .lang { position: absolute; top: 24px; right: 22px; display: flex; gap: 4px; }
+  .lang button {
+    background: none; border: 1px solid rgba(241, 238, 228, .3); color: rgba(241, 238, 228, .7);
+    font: inherit; font-size: 10px; letter-spacing: .12em; padding: 3px 7px; cursor: pointer;
+  }
+  .lang button.active { background: var(--paper); border-color: var(--paper); color: var(--ink); }
+
+  /* --------------------------------------------------------------- main */
+  main { flex: 1 1 auto; overflow-y: auto; }
+  section { border-bottom: 4px solid var(--ink); padding: 22px 34px 26px; }
+  section:last-child { border-bottom: none; }
+  .head { display: flex; align-items: baseline; gap: 14px; }
+  .head .idx {
+    font-size: 11px; letter-spacing: .2em; color: var(--grey);
+    font-variant-numeric: tabular-nums;
+  }
+  .head h2 {
+    font-size: 14px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase;
+  }
+  .head .note { margin-left: auto; font-size: 11.5px; color: var(--grey); }
+
+  .rows { margin-top: 16px; }
+  .row {
+    display: grid; grid-template-columns: 1fr auto; align-items: baseline;
+    border-bottom: 1px solid var(--rule); padding: 7px 0;
+  }
+  .row:first-child { border-top: 1px solid var(--rule); }
+  .row .k { font-size: 12.5px; letter-spacing: .02em; }
+  .row .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  .row .v small { font-size: 11.5px; font-weight: 400; color: var(--grey); letter-spacing: 0; }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
+
+  button.act {
+    font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    background: none; color: var(--ink); border: 2px solid var(--ink); padding: 9px 16px; cursor: pointer;
+  }
+  button.act:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  button.act:disabled { opacity: .3; cursor: default; }
+  button.act.red { background: var(--red); border-color: var(--red); color: var(--paper); }
+  button.act.red:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+  button.act.blue { background: var(--blue); border-color: var(--blue); color: var(--paper); }
+  button.act.blue:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+  button.act.wide { width: 100%; }
+
+  /* toggles: square swatches, no rounded pills */
+  .toggles { display: flex; flex-wrap: wrap; gap: 14px 20px; margin-top: 18px; }
+  .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; }
+  .toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .toggle .box { width: 15px; height: 15px; border: 2px solid var(--ink); position: relative; }
+  .toggle input:checked + .box { background: var(--blue); }
+  .toggle input:checked + .box::after {
+    content: ""; position: absolute; inset: 2px; background: var(--paper);
+  }
+  .toggle input:checked + .box::before {
+    content: ""; position: absolute; inset: 3.5px; background: var(--blue); z-index: 2;
+  }
+
+  .fields { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 20px; }
+  .field label { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--grey); }
+  .field input {
+    font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
+    background: none; border: none; border-bottom: 2px solid var(--ink); padding: 4px 0 2px;
+    width: 132px; color: var(--ink);
+  }
+  .field input:focus { outline: none; border-bottom-color: var(--red); }
+
+  select {
+    font: inherit; font-size: 12.5px; background: none; color: var(--ink);
+    border: 2px solid var(--ink); padding: 8px 10px; min-width: 300px; max-width: 460px;
+  }
+  select:focus { outline: none; border-color: var(--blue); }
+
+  pre#log {
+    margin-top: 16px; background: var(--ink); color: #d9d5c8;
+    font: 11.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: 14px 16px; height: 200px; overflow: auto; white-space: pre-wrap;
+    border-left: 6px solid var(--yellow);
+  }
+  .status-line { margin-top: 10px; font-size: 11.5px; letter-spacing: .06em; color: var(--grey); }
+  .status-line b { color: var(--ink); }
+  .err { color: var(--red); font-weight: 700; }
+  .spinner {
+    display: inline-block; width: 9px; height: 9px; background: var(--red); margin-right: 6px;
+    animation: blink .9s steps(2, start) infinite;
+  }
+  @keyframes blink { to { visibility: hidden; } }
+</style>
+</head>
+<body>
+<aside>
+  <span class="lang">
+    <button id="lang-zh" title="中文">中文</button>
+    <button id="lang-en" title="English">EN</button>
+  </span>
+  <div class="marks"><i class="mark-circle"></i><i class="mark-square"></i><i class="mark-tri"></i></div>
+  <h1><span data-i18n="titleTop">元气骑士</span><span data-i18n="titleBottom">存档修改器</span></h1>
+  <p class="latin">Soul Knight · iOS · AirLift</p>
+
+  <div class="device">
+    <div class="name" id="dev-name">—</div>
+    <dl>
+      <div><dt data-i18n="model">机型</dt><dd id="dev-model">—</dd></div>
+      <div><dt data-i18n="ios">系统</dt><dd id="dev-ios">—</dd></div>
+      <div><dt data-i18n="link">连接</dt><dd id="dev-link">—</dd></div>
+    </dl>
+  </div>
+
+  <div class="env">
+    <div id="env-venv"><b data-i18n="python">Python</b><i></i></div>
+    <div id="env-deps"><b data-i18n="deps">依赖</b><i></i></div>
+    <div id="env-airlift"><b>AirLift</b><i></i></div>
+  </div>
+
+  <p class="build" id="build-line"></p>
+
+  <div class="rail-actions">
+    <button class="act wide" id="btn-refresh" data-i18n="refresh">刷新</button>
+    <button class="act red wide" id="btn-setup" data-i18n="install">安装环境</button>
+  </div>
+</aside>
+
+<main>
+  <section>
+    <div class="head">
+      <span class="idx">01</span>
+      <h2 data-i18n="secState">存档状态</h2>
+      <span class="note" id="state-note" data-i18n="stateNote"></span>
+    </div>
+    <div class="rows" id="state-rows"></div>
+    <div class="actions">
+      <button class="act" id="btn-info" data-i18n="readSave">读取存档</button>
+      <button class="act" id="btn-backup" data-i18n="backup">备份存档</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="idx">02</span>
+      <h2 data-i18n="secUnlock">解锁</h2>
+      <span class="note" data-i18n="unlockNote"></span>
+    </div>
+    <div class="toggles" id="toggles"></div>
+    <div class="fields">
+      <div class="field"><label data-i18n="gems">宝石</label><input type="number" id="opt-gems" value="2000000000" step="1000000"></div>
+      <div class="field"><label data-i18n="coin">赛季币</label><input type="number" id="opt-coin" value="9999999" step="10000"></div>
+      <div class="field"><label data-i18n="qty">材料 / 种子 / 票券</label><input type="number" id="opt-qty" value="99999" step="1000"></div>
+      <div class="field"><label data-i18n="heroLv">角色等级</label><input type="number" id="opt-level" value="8" min="1" max="8"></div>
+    </div>
+    <div class="actions">
+      <button class="act red" id="btn-unlock" data-i18n="unlockAll">解锁全部</button>
+      <span class="status-line" data-i18n="unlockHint"></span>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="idx">03</span>
+      <h2 data-i18n="secRestore">备份与恢复</h2>
+      <span class="note" data-i18n="restoreNote"></span>
+    </div>
+    <div class="actions">
+      <select id="backup-list"></select>
+      <button class="act" id="btn-list" data-i18n="reload">刷新列表</button>
+      <button class="act blue" id="btn-restore" data-i18n="restoreDo">恢复所选</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <span class="idx">04</span>
+      <h2 data-i18n="secLog">运行日志</h2>
+      <span class="note" id="job-state"></span>
+    </div>
+    <pre id="log"></pre>
+    <p class="status-line" data-i18n="footer"></p>
+  </section>
+</main>
+
+<script>
+const I18N = {
+  zh: {
+    titleTop: "元气骑士", titleBottom: "存档修改器",
+    model: "机型", ios: "系统", link: "连接", python: "Python", deps: "依赖",
+    refresh: "刷新", install: "安装环境",
+    secState: "存档状态", secUnlock: "解锁", secRestore: "备份与恢复", secLog: "运行日志",
+    stateNote: "读取会把存档取出后原样写回", unlockNote: "写入前后各有备份，写后逐字节校验",
+    restoreNote: "含 Mac 与手机内的备份", footer: "运行期间请保持游戏完全退出、iPhone 解锁并连接；仅写本地存档，不影响云存档。",
+    readSave: "读取存档", backup: "备份存档",
+    gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
+    unlockAll: "解锁全部",
+    unlockHint: "数值只升不降",
+    reload: "刷新列表", restoreDo: "恢复所选",
+    readyLine: "环境就绪", setupLine: "环境未安装",
+    empty: "还没有读取过存档", none: "（无）",
+    running: "进行中", done: "完成", failed: "失败", idle: "就绪",
+    errorHint: "失败时先确认三点：游戏已完全退出；iPhone 已解锁并保持连接；再点一次「读取存档」重试。",
+    confirm: "确定用这个备份覆盖手机里的存档吗？",
+    rows: {
+      heroes: "角色未解锁", pets: "宠物未解锁", locksTitle: "锁定项合计",
+      skins: "已解锁皮肤", skinsTotal: "皮肤总数", skills: "已解锁技能",
+      weapons: "已解锁武器", weaponsTotal: "武器总数", evolved: "已进化武器",
+      effects: "击败特效", gems: "宝石", coin: "赛季币", switches: "格式开关", legacy: "未清理的新格式文件"
+    },
+    options: {
+      heroes: "角色", hero_levels: "角色等级", skins: "皮肤", pets: "宠物", skills: "技能",
+      weapons: "武器", weapon_skins: "武器皮肤", evolution: "武器进化", kill_effects: "击败特效",
+      mythic: "神话武器", materials: "材料", season_coin: "赛季币", gems: "宝石", repair_format: "修复存档格式"
+    }
+  },
+  en: {
+    titleTop: "SOUL KNIGHT", titleBottom: "SAVE EDITOR",
+    model: "Model", ios: "iOS", link: "Link", python: "Python", deps: "Deps",
+    refresh: "Refresh", install: "Set up",
+    secState: "Save state", secUnlock: "Unlock", secRestore: "Backup", secLog: "Log",
+    stateNote: "reading moves the save out and writes it back unchanged",
+    unlockNote: "backed up before and verified byte for byte after",
+    restoreNote: "Mac and on-device backups", footer: "Keep the game closed and the iPhone unlocked and connected. Only local files are written.",
+    readSave: "Read save", backup: "Back up",
+    gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
+    unlockAll: "Unlock all",
+    unlockHint: "values are never lowered",
+    reload: "Reload", restoreDo: "Restore",
+    readyLine: "environment ready", setupLine: "environment missing",
+    empty: "the save has not been read yet", none: "(none)",
+    running: "running", done: "done", failed: "failed", idle: "ready",
+    errorHint: "After a failure: quit the game completely, unlock the iPhone and keep it connected, then read the save again.",
+    confirm: "Overwrite the save on the phone with this backup?",
+    rows: {
+      heroes: "heroes locked", pets: "pets locked", locksTitle: "locked total",
+      skins: "skins unlocked", skinsTotal: "skins known", skills: "skills unlocked",
+      weapons: "weapons unlocked", weaponsTotal: "weapons known", evolved: "weapons evolved",
+      effects: "kill effects", gems: "gems", coin: "season coins", switches: "format switches",
+      legacy: "uncleaned new-format files"
+    },
+    options: {
+      heroes: "heroes", hero_levels: "hero levels", skins: "skins", pets: "pets", skills: "skills",
+      weapons: "weapons", weapon_skins: "weapon skins", evolution: "weapon evolution",
+      kill_effects: "kill effects", mythic: "mythic weapons", materials: "materials",
+      season_coin: "season coins", gems: "gems", repair_format: "format repair"
+    }
+  }
+};
+let lang = (navigator.language || "").startsWith("zh") ? "zh" : "en";
+const t = (key) => I18N[lang][key] ?? key;
+const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const num = (value) => (value === null || value === undefined ? "—" : Number(value).toLocaleString());
+
+/* ---- host bridge: the macOS app is the normal host, fetch is the fallback ---- */
+const native = window.webkit?.messageHandlers?.sksave;
+let jobCursor = 0;
+
+function ask(action, payload) {
+  if (native) { native.postMessage({ action, ...(payload || {}) }); return; }
+  fetch("/api/" + action, {
+    method: payload ? "POST" : "GET",
+    headers: payload ? { "Content-Type": "application/json", "X-Requested-With": "sksave" } : {},
+    body: payload ? JSON.stringify(payload) : undefined
+  }).then((r) => r.json()).then(handle).catch(() => {});
+}
+
+function fail(text) {
+  const line = document.createElement("p");
+  line.className = "status-line err";
+  line.textContent = text;
+  $("state-rows").prepend(line);
+}
+
+function handle(event) {
+  if (!event || !event.type) return;
+  try {
+    dispatch(event);
+  } catch (error) {
+    fail(String(error && error.message || error));
+  }
+}
+
+function dispatch(event) {
+  if (event.type === "status") return renderStatus(event.payload);
+  if (event.type === "state") return renderState(event.payload);
+  if (event.type === "backups") return renderBackups(event.payload);
+  if (event.type === "job") return renderJob(event.payload);
+}
+
+function renderStatus(payload) {
+  const device = (payload.devices || [])[0];
+  $("dev-name").textContent = device ? device.name : t("none");
+  $("dev-model").textContent = device ? device.product : "—";
+  $("dev-ios").textContent = device ? "iOS " + device.version : "—";
+  $("dev-link").textContent = device ? device.transport : "—";
+  const env = payload.environment || {};
+  [["env-venv", env.venv], ["env-deps", env.dependencies], ["env-airlift", env.airlift]]
+    .forEach(([id, ok]) => { $(id).className = ok ? "on" : "off"; });
+  $("build-line").textContent = "v" + (payload.version || "") + "  ·  " +
+    (env.dependencies && env.airlift ? t("readyLine") : t("setupLine"));
+  optionNames = payload.options || [];
+  renderToggles();
+  renderState(payload.state);
+  const ready = env.dependencies && env.airlift && device;
+  ["btn-info", "btn-backup"].forEach((id) => { $(id).disabled = !ready; });
+  $("btn-unlock").disabled = !ready;
+  $("btn-setup").disabled = false;
+}
+
+let optionNames = [];
+function renderToggles() {
+  const box = $("toggles");
+  box.innerHTML = "";
+  optionNames.forEach((name) => {
+    const label = document.createElement("label");
+    label.className = "toggle";
+    const input = document.createElement("input");
+    input.type = "checkbox"; input.id = "opt-" + name; input.checked = true;
+    const square = document.createElement("span"); square.className = "box";
+    const text = document.createElement("span");
+    text.textContent = I18N[lang].options[name] || name;
+    label.append(input, square, text);
+    box.append(label);
+  });
+}
+
+function renderState(snapshot) {
+  const rows = $("state-rows");
+  if (!snapshot) { rows.innerHTML = `<div class="row"><span class="k">${t("empty")}</span><span class="v">—</span></div>`; return; }
+  const locked = snapshot.heroes.locked + snapshot.pets.locked + snapshot.skills.locked;
+  const switches = Object.entries(snapshot.legacyFlags || {})
+    .map(([key, value]) => key.replace(/_\d+$/, "") + " " + value).join(" · ") || "—";
+  const data = [
+    ["locksTitle", locked],
+    ["skins", snapshot.skins.prefsUnlocked, `/ ${snapshot.skins.entries}`],
+    ["skills", snapshot.skills.entries - snapshot.skills.locked, `/ ${snapshot.skills.entries}`],
+    ["weapons", snapshot.weapons.unlocked, `/ ${snapshot.weapons.catalog}`],
+    ["evolved", snapshot.weapons.evolved, `/ ${snapshot.weapons.evolutionEntries}`],
+    ["effects", snapshot.killEffects],
+    ["gems", num(snapshot.gems)],
+    ["coin", num(snapshot.seasonCoin)],
+    ["legacy", snapshot.legacyFiles.length],
+    ["switches", switches]
+  ];
+  rows.innerHTML = data.map(([key, value, extra]) => `
+    <div class="row">
+      <span class="k">${esc(I18N[lang].rows[key] || key)}</span>
+      <span class="v">${esc(value)}${extra ? ` <small>${esc(extra)}</small>` : ""}</span>
+    </div>`).join("");
+  $("state-note").textContent = t("stateNote");
+}
+
+function renderBackups(payload) {
+  const list = $("backup-list");
+  list.innerHTML = "";
+  const entries = [
+    ...(payload.device || []).map((path) => [path, "device", "iPhone"]),
+    ...(payload.local || []).map((path) => [path, "local", "Mac"])
+  ];
+  if (!entries.length) {
+    const option = document.createElement("option");
+    option.textContent = t("none"); list.append(option); return;
+  }
+  entries.forEach(([path, kind, tag]) => {
+    const option = document.createElement("option");
+    option.value = path; option.dataset.kind = kind;
+    option.textContent = `${tag} · ${String(path).split("/").pop()}`;
+    list.append(option);
+  });
+}
+
+function renderJob(job) {
+  if (!job) return;
+  if (job.log) { $("log").textContent += job.log; $("log").scrollTop = $("log").scrollHeight; }
+  const busy = job.status === "running";
+  $("job-state").innerHTML = (busy ? '<span class="spinner"></span>' : "") +
+    `${job.name || ""} ${t(job.status) || job.status}` + (job.seconds ? ` · ${job.seconds}s` : "");
+  ["btn-refresh", "btn-setup", "btn-info", "btn-backup", "btn-unlock", "btn-restore", "btn-list"]
+    .forEach((id) => { $(id).disabled = busy; });
+  if (job.status === "failed") {
+    const hint = document.createElement("p");
+    hint.className = "status-line err";
+    hint.textContent = t("errorHint");
+    $("log").after(hint);
+  }
+  if (!busy) ask("status");
+}
+
+function applyLang() {
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const value = t(node.dataset.i18n);
+    if (typeof value === "string" && value) node.textContent = value;
+  });
+  $("lang-zh").classList.toggle("active", lang === "zh");
+  $("lang-en").classList.toggle("active", lang === "en");
+  renderToggles();
+  ask("state");
+  ask("backups");
+}
+
+$("btn-refresh").onclick = () => { ask("status"); ask("backups"); };
+$("btn-setup").onclick = () => { $("log").textContent = ""; ask("start", { name: "setup" }); };
+$("btn-info").onclick = () => { $("log").textContent = ""; ask("start", { name: "info" }); };
+$("btn-backup").onclick = () => { $("log").textContent = ""; ask("start", { name: "backup" }); };
+$("btn-list").onclick = () => ask("backups");
+$("btn-unlock").onclick = () => {
+  $("log").textContent = "";
+  const options = {};
+  optionNames.forEach((name) => { options[name] = $("opt-" + name)?.checked !== false; });
+  ask("start", {
+    name: "unlock", options,
+    gems: Number($("opt-gems").value), seasonCoin: Number($("opt-coin").value),
+    quantity: Number($("opt-qty").value), heroLevel: Number($("opt-level").value)
+  });
+};
+$("btn-restore").onclick = () => {
+  const option = $("backup-list").selectedOptions[0];
+  if (!option || !option.value) return;
+  if (!confirm(t("confirm"))) return;
+  $("log").textContent = "";
+  ask("start", { name: "restore", source: option.value, kind: option.dataset.kind });
+};
+$("lang-zh").onclick = () => { lang = "zh"; applyLang(); };
+$("lang-en").onclick = () => { lang = "en"; applyLang(); };
+
+window.sksave = { onEvent: handle };
+applyLang();
+ask("status");
+</script>
+</body>
+</html>
