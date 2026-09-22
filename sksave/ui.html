@@ -38,15 +38,7 @@
     position: relative;
     overflow: hidden;
   }
-  .marks { position: relative; height: 96px; margin-bottom: 22px; }
-  .marks i { position: absolute; display: block; }
-  .mark-circle { width: 46px; height: 46px; border-radius: 50%; background: var(--red); left: 0; top: 0; }
-  .mark-square { width: 34px; height: 34px; background: var(--yellow); left: 58px; top: 46px; }
-  .mark-tri {
-    width: 0; height: 0; left: 104px; top: 0;
-    border-left: 26px solid transparent; border-right: 26px solid transparent;
-    border-bottom: 44px solid var(--blue);
-  }
+  .rail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   aside h1 {
     font-size: 19px; font-weight: 700; letter-spacing: .01em; line-height: 1.25;
   }
@@ -55,7 +47,7 @@
     margin-top: 8px; font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
     color: rgba(241, 238, 228, .55);
   }
-  aside .device { margin-top: 30px; border-top: 1px solid rgba(241, 238, 228, .25); padding-top: 16px; }
+  aside .device { margin-top: 32px; border-top: 1px solid rgba(241, 238, 228, .25); padding-top: 16px; }
   aside .device .name { font-size: 16px; font-weight: 700; }
   aside .device dl { margin-top: 10px; }
   aside .device div { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11.5px; }
@@ -76,7 +68,7 @@
     font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: rgba(241, 238, 228, .5);
   }
   .rail-actions { margin-top: auto; padding-top: 22px; display: grid; gap: 8px; }
-  .lang { position: absolute; top: 24px; right: 22px; display: flex; gap: 4px; }
+  .lang { display: flex; gap: 4px; flex: 0 0 auto; padding-top: 2px; }
   .lang button {
     background: none; border: 1px solid rgba(241, 238, 228, .3); color: rgba(241, 238, 228, .7);
     font: inherit; font-size: 10px; letter-spacing: .12em; padding: 3px 7px; cursor: pointer;
@@ -142,6 +134,9 @@
     width: 132px; color: var(--ink);
   }
   .field input:focus { outline: none; border-bottom-color: var(--red); }
+  .field input::-webkit-outer-spin-button,
+  .field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .field input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
   select {
     font: inherit; font-size: 12.5px; background: none; color: var(--ink);
@@ -167,12 +162,13 @@
 </head>
 <body>
 <aside>
-  <span class="lang">
-    <button id="lang-zh" title="中文">中文</button>
-    <button id="lang-en" title="English">EN</button>
-  </span>
-  <div class="marks"><i class="mark-circle"></i><i class="mark-square"></i><i class="mark-tri"></i></div>
-  <h1><span data-i18n="titleTop">元气骑士</span><span data-i18n="titleBottom">存档修改器</span></h1>
+  <div class="rail-head">
+    <h1><span data-i18n="titleTop">元气骑士</span><span data-i18n="titleBottom">存档修改器</span></h1>
+    <span class="lang">
+      <button id="lang-zh" title="中文">中文</button>
+      <button id="lang-en" title="English">EN</button>
+    </span>
+  </div>
   <p class="latin">Soul Knight · iOS · AirLift</p>
 
   <div class="device">
@@ -238,7 +234,7 @@
       <span class="note" data-i18n="restoreNote"></span>
     </div>
     <div class="actions">
-      <select id="backup-list"></select>
+      <select id="backup-list"><option data-i18n="loading">正在读取…</option></select>
       <button class="act" id="btn-list" data-i18n="reload">刷新列表</button>
       <button class="act blue" id="btn-restore" data-i18n="restoreDo">恢复所选</button>
     </div>
@@ -268,7 +264,7 @@ const I18N = {
     gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
     unlockAll: "解锁全部",
     unlockHint: "数值只升不降",
-    reload: "刷新列表", restoreDo: "恢复所选",
+    reload: "刷新列表", restoreDo: "恢复所选", loading: "正在读取…",
     readyLine: "环境就绪", setupLine: "环境未安装",
     empty: "还没有读取过存档", none: "未找到 iPhone",
     noDevice: "请确认 iPhone 已用数据线连接、已解锁，游戏已退出（锁屏时 iOS 不会交出 App 数据）。",
@@ -299,7 +295,7 @@ const I18N = {
     gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
     unlockAll: "Unlock all",
     unlockHint: "values are never lowered",
-    reload: "Reload", restoreDo: "Restore",
+    reload: "Reload", restoreDo: "Restore", loading: "loading...",
     readyLine: "environment ready", setupLine: "environment missing",
     empty: "the save has not been read yet", none: "no iPhone found",
     noDevice: "Connect the iPhone with a cable, unlock it and close the game first (iOS hands over no app data while it is locked).",
@@ -321,7 +317,7 @@ const I18N = {
     }
   }
 };
-let lang = (navigator.language || "").startsWith("zh") ? "zh" : "en";
+let lang = "zh";   // Chinese first; the switch in the corner changes it
 const t = (key) => I18N[lang][key] ?? key;
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));

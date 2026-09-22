@@ -34,6 +34,7 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
     var tool: URL = URL(fileURLWithPath: NSTemporaryDirectory())
     var jobScript: Process?
     var jobName = ""
+    var snapshotPath: String?
     var state: [String: Any]?
 
     // ------------------------------------------------------------------ setup
@@ -60,6 +61,26 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
         note("window created, visible=\(window.isVisible) frame=\(NSStringFromRect(window.frame))")
 
         loadInterface()
+
+        if let path = snapshotPath {
+            // --snapshot <file>: let the page finish its round trips, save the window
+            // as a PNG and quit.  Used to check the layout and to make README images.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+                guard let self = self, let view = self.webView else { return }
+                view.takeSnapshot(with: nil) { image, error in
+                    if let image = image,
+                       let tiff = image.tiffRepresentation,
+                       let bitmap = NSBitmapImageRep(data: tiff),
+                       let png = bitmap.representation(using: .png, properties: [:]) {
+                        try? png.write(to: URL(fileURLWithPath: path))
+                        note("snapshot written to \(path)")
+                    } else {
+                        note("snapshot failed: \(error?.localizedDescription ?? "unknown")")
+                    }
+                    NSApp.terminate(nil)
+                }
+            }
+        }
     }
 
     func loadInterface() {
@@ -356,6 +377,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         note("applicationDidFinishLaunching")
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "--snapshot"), index + 1 < arguments.count {
+            host.snapshotPath = arguments[index + 1]
+        }
         buildMenu()
         host.start()
         NSApp.activate(ignoringOtherApps: true)

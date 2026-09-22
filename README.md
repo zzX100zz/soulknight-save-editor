@@ -88,7 +88,11 @@ make app              # 编译并打开 dist/SoulKnightSaveEditor.app
 运行日志实时显示。环境还没装好时，点左侧的「安装环境」即可，它会创建虚拟环境、
 安装依赖并编译 AirLift，进度同样显示在日志里。
 
-界面中英双语，右上角切换。菜单栏里可以「打开工具文件夹」查看取出的存档与备份。
+界面中英双语，默认中文，右上角切换。菜单栏里可以「打开工具文件夹」查看取出的存档与备份。
+
+调试时可以给 App 传 `--snapshot <文件.png>`，它会加载界面、等状态刷新完，把窗口存成
+PNG 再退出，用来核对排版或生成文档截图。App 的运行日志在
+`~/Library/Application Support/SoulKnightSaveEditor/app.log`，窗口没出现时先看它。
 
 ### 使用：命令行
 
@@ -314,8 +318,14 @@ a backup - with the log streaming live. If the environment is missing, press "se
 column and it creates the virtualenv, installs the dependencies and builds AirLift, showing the
 progress in the log.
 
-The interface is bilingual (Chinese and English, switchable in the top right corner), and the
+The interface is bilingual - Chinese by default, switchable in the top right corner - and the
 menu bar has an "open tool folder" item for the pulled saves and backups.
+
+For debugging, `--snapshot <file.png>` makes the app load the interface, wait for the status
+refresh, write the window to a PNG and quit, which is handy for checking the layout or making
+documentation images. The app log is at
+`~/Library/Application Support/SoulKnightSaveEditor/app.log`, the first place to look when the
+window does not appear.
 
 ### Usage: command line
 
