@@ -88,14 +88,23 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
         guard let source = bundled, FileManager.default.fileExists(atPath: source.path) else {
             return destination
         }
-        // re-sync when the installed copy is missing, incomplete, or from another build
+        // Re-sync whenever the installed copy is missing, incomplete or simply different:
+        // the version alone would hide every change made between releases.
         let marker = destination.appendingPathComponent(".bundled-version")
         let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0"
-        let installed = (try? String(contentsOf: marker, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let complete = FileManager.default.fileExists(atPath: destination.appendingPathComponent("sksave/ui.html").path)
-        if installed != version || !complete {
+        let fingerprint = version + " " + ["sksave/ui.html", "sksave/patcher.py", "run.py"]
+            .map { relative -> String in
+                let attributes = try? FileManager.default.attributesOfItem(
+                    atPath: source.appendingPathComponent(relative).path)
+                return "\(relative):\((attributes?[.size] as? Int) ?? 0)"
+            }
+            .joined(separator: ",")
+        let installed = (try? String(contentsOf: marker, encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if installed != fingerprint {
+            note("syncing the tool directory from the bundle")
             copyTree(from: source, to: destination)
-            try? version.write(to: marker, atomically: true, encoding: .utf8)
+            try? fingerprint.write(to: marker, atomically: true, encoding: .utf8)
         }
         return destination
     }

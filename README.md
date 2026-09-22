@@ -50,7 +50,9 @@ AirLift 本身只提供「写入一个新文件」这一个原语，所以本工
 2. **iPhone 运行 iOS 27**，已与这台 Mac 配对，并已开启
    「设置 → 隐私与安全性 → 开发者模式」。
 3. **Python 3.11 或更高版本**，以及 `git`、`make`（`xcode-select --install` 自带）。
-4. **游戏必须完全退出**。AirLift 会把存档文件移出容器，App 正在运行会占用这些文件。
+4. **游戏必须完全退出，iPhone 需要解锁并保持连接。** AirLift 会把存档文件移出容器，
+   游戏正在运行会占用这些文件；iPhone 长时间锁屏后，iOS 也会停止把 App 数据交出来
+   （这不是故障，解锁重跑即可，工具会在日志里说明）。
 5. **建议使用未登录云存档的账号**。若登录过云存档，游戏在下次会话时可能用云端数据覆盖本地修改。
 
 AirLift 不会随仓库分发：`make setup` 会在 `vendor/airlift` 下克隆并编译它（需要联网），
@@ -271,8 +273,10 @@ Every category can be disabled individually; see *Usage*.
 2. **An iPhone running iOS 27**, paired with this Mac, with Developer Mode enabled under
    *Settings → Privacy & Security → Developer Mode*.
 3. **Python 3.11+**, plus `git` and `make` (both included with `xcode-select --install`).
-4. **The game must be fully closed.** AirLift moves files out of the container, so nothing may
-   hold them open.
+4. **The game must be fully closed, and the iPhone must be unlocked and connected.** AirLift
+   moves files out of the container, so nothing may hold them open; iOS also stops handing over
+   app data once the phone has been locked for a while (that is not a failure - unlock it and run
+   again, and the tool says so in its log).
 5. **An account that has never used cloud saves is strongly recommended.** If the account is
    linked, the next session may re-upload or overwrite the local save.
 

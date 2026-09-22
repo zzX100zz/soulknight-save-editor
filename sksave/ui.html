@@ -270,7 +270,8 @@ const I18N = {
     unlockHint: "数值只升不降",
     reload: "刷新列表", restoreDo: "恢复所选",
     readyLine: "环境就绪", setupLine: "环境未安装",
-    empty: "还没有读取过存档", none: "（无）",
+    empty: "还没有读取过存档", none: "未找到 iPhone",
+    noDevice: "请确认 iPhone 已用数据线连接、已解锁，游戏已退出（锁屏时 iOS 不会交出 App 数据）。",
     running: "进行中", done: "完成", failed: "失败", idle: "就绪",
     errorHint: "失败时先确认三点：游戏已完全退出；iPhone 已解锁并保持连接；再点一次「读取存档」重试。",
     confirm: "确定用这个备份覆盖手机里的存档吗？",
@@ -300,7 +301,8 @@ const I18N = {
     unlockHint: "values are never lowered",
     reload: "Reload", restoreDo: "Restore",
     readyLine: "environment ready", setupLine: "environment missing",
-    empty: "the save has not been read yet", none: "(none)",
+    empty: "the save has not been read yet", none: "no iPhone found",
+    noDevice: "Connect the iPhone with a cable, unlock it and close the game first (iOS hands over no app data while it is locked).",
     running: "running", done: "done", failed: "failed", idle: "ready",
     errorHint: "After a failure: quit the game completely, unlock the iPhone and keep it connected, then read the save again.",
     confirm: "Overwrite the save on the phone with this backup?",
@@ -364,6 +366,7 @@ function dispatch(event) {
 function renderStatus(payload) {
   const device = (payload.devices || [])[0];
   $("dev-name").textContent = device ? device.name : t("none");
+  $("dev-name").title = device ? device.udid || "" : "";
   $("dev-model").textContent = device ? device.product : "—";
   $("dev-ios").textContent = device ? "iOS " + device.version : "—";
   $("dev-link").textContent = device ? device.transport : "—";
@@ -379,6 +382,18 @@ function renderStatus(payload) {
   ["btn-info", "btn-backup"].forEach((id) => { $(id).disabled = !ready; });
   $("btn-unlock").disabled = !ready;
   $("btn-setup").disabled = false;
+  let hint = document.getElementById("device-hint");
+  if (!device || !env.dependencies || !env.airlift) {
+    if (!hint) {
+      hint = document.createElement("p");
+      hint.id = "device-hint";
+      hint.className = "status-line err";
+      document.querySelector(".device").after(hint);
+    }
+    hint.textContent = !device ? t("noDevice") : t("errorHint");
+  } else if (hint) {
+    hint.remove();
+  }
 }
 
 let optionNames = [];
