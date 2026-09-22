@@ -5,11 +5,9 @@
 
 本工具不含游戏本体，也不修改 App 安装包，只读写运行中 App 的数据容器文件。
 
-实测环境：iPhone（iOS 27.0）＋《元气骑士》8.5.1＋macOS 与完整 Xcode 27。
+实测环境：iPhone（iOS 27.0）＋《元气骑士》8.6.0＋macOS 与完整 Xcode 27。
 
 ---
-
-## 中文
 
 ### 这是什么
 
@@ -231,8 +229,6 @@ MIT，见 [LICENSE](LICENSE)。本项目为非官方工具，与凉屋游戏（�
 
 ---
 
-## English
-
 ### Overview
 
 A command line editor for the local save files of **Soul Knight** on iOS. It unlocks heroes,
@@ -241,7 +237,7 @@ skins, weapons and kill effects, and raises currencies and materials to their ca
 The tool does not contain the game, and does not touch the installed app bundle: it only reads
 and writes files inside the app's data container.
 
-Verified on an iPhone running iOS 27.0 with Soul Knight 8.5.1, from macOS with a full Xcode 27.
+Verified on an iPhone running iOS 27.0 with Soul Knight 8.6.0, from macOS with a full Xcode 27.
 
 It is built on [AirLift](https://github.com/0xjohnnydev/airlift), an AirTraffic sandbox escape
 for iOS 27. AirLift only offers one primitive, writing a *new* file outside the sandbox, so this
