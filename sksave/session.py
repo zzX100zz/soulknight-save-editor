@@ -14,6 +14,7 @@ device's Media folder, so an interrupted run can always be recovered.
 from __future__ import annotations
 
 import hashlib
+import json
 import posixpath
 import shutil
 import time
@@ -106,6 +107,11 @@ class SaveSession:
         return self.workdir / "live"
 
     @property
+    def marker(self) -> Path:
+        """Set while the phone's container is known to be incomplete."""
+        return self.workdir / "in-progress.json"
+
+    @property
     def backups(self) -> Path:
         return self.workdir / "backups"
 
@@ -155,9 +161,38 @@ class SaveSession:
                 "--container /var/mobile/Containers/Data/Application/<UUID>"
             ) from error
 
+    def in_progress(self) -> dict[str, Any] | None:
+        """The marker left behind by a job that did not finish.
+
+        It exists exactly while the container is known to be incomplete: a pull
+        moves the files out, and only a successful push puts them back.
+        """
+        try:
+            return json.loads(self.marker.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def _mark_started(self, where: str) -> None:
+        try:
+            self.marker.parent.mkdir(parents=True, exist_ok=True)
+            self.marker.write_text(
+                json.dumps({"where": where, "container": self.device.container,
+                            "at": time.strftime("%Y-%m-%d %H:%M:%S")}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    def _mark_finished(self) -> None:
+        try:
+            self.marker.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def pull(self, *, into: Path | None = None, with_prefs: bool = True) -> Path:
         """Move the save off the phone into ``workdir/live``."""
         target = Path(into) if into else self.live
+        self._mark_started(str(target))
         shutil.rmtree(target, ignore_errors=True)
         target.mkdir(parents=True, exist_ok=True)
         self._pull_one(self.device.documents, target / fields.DOCUMENTS, "pull Documents")
@@ -182,6 +217,7 @@ class SaveSession:
             "push Documents",
         )
         result["documents"] = True
+        self._mark_finished()
         self.log(f"pushed {len(list(documents.iterdir()))} entries back to Documents")
         prefs = Path(source) / "prefs.plist"
         if with_prefs and prefs.is_file():
@@ -303,12 +339,17 @@ class SaveSession:
         report: dict[str, Any] = {"device": self.device.udid, "container": self.device.container}
 
         self.pull()
-        workspace = SaveWorkspace(self.live)
-        report["before"] = describe_state(workspace)
-
-        backup = self.backup(self.live, label=f"before-{label}")
-        report["backup"] = str(backup)
-        report["deviceBackup"] = self.stash_on_device(backup, label=f"before-{label}")
+        try:
+            workspace = SaveWorkspace(self.live)
+            report["before"] = describe_state(workspace)
+            backup = self.backup(self.live, label=f"before-{label}")
+            report["backup"] = str(backup)
+            report["deviceBackup"] = self.stash_on_device(backup, label=f"before-{label}")
+        except Exception:
+            # Nothing has been changed yet, so give the phone its files back before failing.
+            self.log("stopping before any change - putting the pulled save back")
+            self.push(self.live, with_prefs=True)
+            raise
 
         try:
             report["legacyFilesMoved"] = self.stash_legacy_files(self.live)
@@ -324,9 +365,14 @@ class SaveSession:
             readback = self.readback_check(self.live)
             report["readback"] = readback
             if readback["mismatched"] or readback["missing"]:
+                # Do not leave an unverified save on the phone: put the backup back,
+                # verify that too, and only then report the failure.
+                self.log("readback did not match - restoring the backup that was taken before patching")
+                self.push(backup, with_prefs=True)
+                report["reverted"] = str(backup)
                 raise RuntimeError(
-                    "the phone did not keep what was written - the save was restored to the "
-                    f"backup in {backup}"
+                    "the phone did not keep what was written.  The backup taken before patching "
+                    f"has been pushed back, so the save is the one you started with: {backup}"
                 )
 
         report["after"] = describe_state(SaveWorkspace(self.live))

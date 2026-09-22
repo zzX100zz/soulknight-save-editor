@@ -95,8 +95,11 @@ def command_info(args) -> int:
         return 0
     session = _open_session(args)
     session.pull()
-    state = describe_state(SaveWorkspace(session.live))
-    session.push(session.live)                     # put the untouched save back
+    try:
+        state = describe_state(SaveWorkspace(session.live))
+    finally:
+        # whatever happened above, the phone gets its files back
+        session.push(session.live)
     _write_report(args, {"state": state})
     _print_json(state)
     return 0
@@ -105,9 +108,12 @@ def command_info(args) -> int:
 def command_backup(args) -> int:
     session = _open_session(args)
     session.pull()
-    path = session.backup(session.live, label=args.label or "manual")
-    session.stash_on_device(path, label=args.label or "manual")
-    session.push(session.live)
+    path = None
+    try:
+        path = session.backup(session.live, label=args.label or "manual")
+        session.stash_on_device(path, label=args.label or "manual")
+    finally:
+        session.push(session.live)
     print(f"backup written to {path}")
     _write_report(args, {"backup": str(path), "state": describe_state(SaveWorkspace(session.live))})
     return 0

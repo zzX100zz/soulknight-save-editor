@@ -67,7 +67,11 @@ class SaveWorkspace:
         self.prefs_path = self.root / "prefs.plist"
         self.uid = uid or self._detect_uid()
         if not self.uid:
-            raise SaveError("no <type>_<uid>_.data files found - is this a Soul Knight save?")
+            raise SaveError(
+                "no <type>_<uid>_.data files found in the pulled save.  The game writes these "
+                "files itself, so open Soul Knight once, quit it completely, and run this again - "
+                "and check that the container path above is the one the game is actually using."
+            )
 
     # ------------------------------------------------------------------ #
     # discovery

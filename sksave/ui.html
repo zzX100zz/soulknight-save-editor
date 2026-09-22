@@ -281,6 +281,7 @@ const I18N = {
     readSave: "读取存档", backup: "备份存档",
     advanced: "高级：手工指定容器路径", containerPath: "容器路径（留空则自动探测）",
     containerRemembered: "上次成功读取的容器：", containerNone: "还没有记下容器路径（读取成功后会自动记下）。",
+    interrupted: "上一次操作没有走完：手机里的存档可能不完整。请先在 03 里选一份备份，点「恢复所选」，再重新操作。",
     gems: "宝石", coin: "赛季币", qty: "材料 / 种子 / 票券", heroLv: "角色等级",
     unlockAll: "应用",
     unlockHint: "数值只升不降",
@@ -317,6 +318,7 @@ const I18N = {
     readSave: "Read save", backup: "Back up",
     advanced: "Advanced: set the container path by hand", containerPath: "Container path (empty = discover it)",
     containerRemembered: "Container from the last successful read: ", containerNone: "No container remembered yet (it is recorded after a successful read).",
+    interrupted: "The last run did not finish, so the save on the phone may be incomplete. Pick a backup in 03 and press restore before doing anything else.",
     gems: "Gems", coin: "Season coins", qty: "Materials / seeds / tickets", heroLv: "Hero level",
     unlockAll: "Apply",
     unlockHint: "values are never lowered",
@@ -406,6 +408,18 @@ function renderStatus(payload) {
   const envReady = !envKnown || (env.dependencies && env.airlift);
   [["env-venv", env.venv], ["env-deps", env.dependencies], ["env-airlift", env.airlift]]
     .forEach(([id, ok]) => { $(id).className = !envKnown ? "unknown" : ok ? "on" : "off"; });
+  let interrupted = document.getElementById("interrupted");
+  if (payload.inProgress) {
+    if (!interrupted) {
+      interrupted = document.createElement("p");
+      interrupted.id = "interrupted";
+      interrupted.className = "status-line err";
+      $("state-rows").after(interrupted);
+    }
+    interrupted.textContent = t("interrupted");
+  } else if (interrupted) {
+    interrupted.remove();
+  }
   const field = $("opt-container");
   if (field && !field.value && payload.containerManual) field.value = payload.containerManual;
   const note = $("container-note");

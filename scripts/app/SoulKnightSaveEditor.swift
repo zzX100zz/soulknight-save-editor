@@ -212,6 +212,8 @@ final class Host: NSObject, WKScriptMessageHandler, WKWebViewConfigurationProvid
                               "season_coin", "gems", "repair_format"]
         payload["state"] = state ?? NSNull()
         payload["containerManual"] = UserDefaults.standard.string(forKey: "manualContainer") ?? ""
+        let marker = tool.appendingPathComponent("work/in-progress.json")
+        payload["inProgress"] = (try? String(contentsOf: marker, encoding: .utf8)) ?? ""
         let cache = tool.appendingPathComponent("work/container.txt")
         payload["containerCache"] = (try? String(contentsOf: cache, encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
