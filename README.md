@@ -75,6 +75,8 @@ python3 -m venv .venv
 
 ### 使用：浏览器界面
 
+![浏览器界面](docs/screenshot-webui.png)
+
 ```bash
 make web              # 打开 http://127.0.0.1:8787/
 ```
@@ -160,6 +162,7 @@ soulknight-save-editor/
 │   ├── session.py          设备流程：拉取、备份、写入、读回校验、恢复
 │   └── cli.py              命令行与浏览器界面入口
 ├── docs/SAVE_FORMAT.md     存档格式与字段说明
+├── docs/screenshot-webui.png  界面截图（示例数据）
 ├── scripts/build_dmg.sh    打包 .app 与 DMG
 └── tests/                  离线测试（使用合成存档，不含任何真实玩家数据）
 ```
@@ -293,6 +296,8 @@ python3 -m venv .venv
 
 ### Usage: web UI
 
+![Browser interface](docs/screenshot-webui.png)
+
 ```bash
 make web              # opens http://127.0.0.1:8787/
 ```
@@ -381,6 +386,7 @@ soulknight-save-editor/
 │   ├── session.py          device flow: pull, back up, push, verify, restore
 │   └── cli.py              command line and interactive menu
 ├── docs/SAVE_FORMAT.md     save layout, ciphers and field semantics
+├── docs/screenshot-webui.png  screenshot of the UI, with sample data
 ├── scripts/build_dmg.sh    builds the .app and the DMG
 └── tests/                  offline tests on a synthetic save, no real player data
 ```
