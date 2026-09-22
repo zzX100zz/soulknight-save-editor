@@ -61,7 +61,7 @@ AirLift 不会随仓库分发：`make setup` 会在 `vendor/airlift` 下克隆�
 ### 安装
 
 ```bash
-git clone <仓库地址> soulknight-save-editor
+git clone https://github.com/zzX100zz/soulknight-save-editor.git
 cd soulknight-save-editor
 make setup
 ```
@@ -78,6 +78,9 @@ python3 -m venv .venv
 ### 使用：应用界面
 
 ![应用界面](docs/screenshot-ui.png)
+
+不想自己构建的话，直接下载 [Releases](https://github.com/zzX100zz/soulknight-save-editor/releases)
+里的 `SoulKnightSaveEditor-1.0.0.dmg`，打开后把 App 拖进「应用程序」即可。
 
 ```bash
 make app              # 编译并打开 dist/SoulKnightSaveEditor.app
@@ -290,7 +293,7 @@ AirLift is not redistributed here. `make setup` clones and builds it into `vendo
 ### Installation
 
 ```bash
-git clone <repository url> soulknight-save-editor
+git clone https://github.com/zzX100zz/soulknight-save-editor.git
 cd soulknight-save-editor
 make setup
 ```
@@ -305,6 +308,10 @@ python3 -m venv .venv
 ```
 
 ### Usage: the app
+
+Prefer not to build it?  Download `SoulKnightSaveEditor-1.0.0.dmg` from
+[Releases](https://github.com/zzX100zz/soulknight-save-editor/releases) and drag the app into
+Applications.
 
 ![Application window](docs/screenshot-ui.png)
 
